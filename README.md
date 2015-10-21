@@ -1,5 +1,7 @@
 Nestile - A tile editor for creating / editing NES graphics
 
+![Screenshot](./screenshot.png)
+
 Author : J. A. McMahan Jr.
 Version: 0.2.0, see changes.txt for details on changes in different versions
 License: See license.txt for details, but it's a modified BSD license. By
