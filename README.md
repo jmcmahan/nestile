@@ -34,15 +34,12 @@ test, so you're welcome to try running it on earlier versions. If you do
 and it works, let me know.
 
 Also, I'm not totally sure, but you might run into trouble running the program
-if you're using a color resolution other than 16-bit. I'm not entirely certain
-about this, but I get the impression from some of the hackish, ugly things I did
-in the code, there may be a problem with that. Maybe not, though - let me know
-of any success or failure you have with this.
+if you're using a color resolution other than 16-bit. I get the impression from 
+some of the hackish, ugly things I did
+in the code, there may be a problem with that.
 
-Yes, that's right, this is alpha software, very much so. It does what I need,
-though, so it might do what you need, too. If someone ends up really wanting to
-use this and lets me know about it, I may develop the motivation to try to 
-improve it farther than the few incremental changes I'm planning on.
+This is alpha software, very much so. It does what I need,
+though, so it might do what you need, too. 
 
 
 2. Using Nestile
@@ -159,8 +156,7 @@ reference.
 6. Contact / Credit
 
 This webpage for this program is http://ensomnya.net/projects/nestile/index.html
-Any updates made should be posted there. You can send me questions about it at
-jerry@ensomnya.net
+Any updates made should be posted there. 
 
 Thanks to all the folks who worked on reverse-engineering the NES and creating
 freely available documentation for it. Thanks also to John Finlay for his 
