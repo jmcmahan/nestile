@@ -143,13 +143,26 @@ class NesTileEdit:
         # self.edit_win.add(self.edit_vbox)
 
         # self.edit_pixmap = gtk.gdk.Pixmap(None, 128, 128, 16)
+        # self.edit_win.connect('delete_event', self.delete, 'edit')
+        # self.edit_canvas.connect('configure_event', self.edit_configure)
+        # self.edit_canvas.connect('expose_event', self.edit_expose)
+        # self.edit_canvas.connect('button_press_event', self.edit_click)
+        # self.edit_canvas.connect('motion_notify_event', self.edit_motion)
+        # self.edit_canvas.set_events(gtk.gdk.EXPOSURE_MASK |
+        #                             gtk.gdk.BUTTON_PRESS_MASK |
+        #                             gtk.gdk.LEAVE_NOTIFY_MASK |
+        #                             gtk.gdk.POINTER_MOTION_MASK |
+        #                             gtk.gdk.POINTER_MOTION_HINT_MASK)
 
         self.edit_win = tk.Toplevel(self.main_win)
         self.edit_win.wm_title('Tile #' + str(self.current_tile_num))
         self.edit_win.geometry('128x192')
         self.edit_win.resizable(False, False)
-        self.edit_pixmap = tk.Canvas(self.edit_win, width=128, height=128, bg='#FF0000')
+        self.edit_win.protocol("WM_DELETE_WINDOW", self.destroy)
+        self.edit_pixmap = tk.Canvas(self.edit_win, width=128, height=128, bg='#000000')
         self.edit_pixmap.grid(column=0, row=0, sticky="new")
+        self.edit_pixmap.bind("<Button-1>", self.edit_click)
+        self.edit_pixmap.bind("<B1-Motion>", self.edit_click)
 
         # self.colors_pixmap = gtk.gdk.Pixmap(None, 128, 128, 16)
         # self.edit_colors.connect('configure_event', self.colors_configure)
@@ -164,6 +177,7 @@ class NesTileEdit:
         self.colors_pixmap.grid(column=0, row=1, sticky="sew")
         self.colors_pixmap.bind("<Button-1>", self.colors_leftclick)
         self.colors_pixmap.bind("<Button-3>", self.colors_rightclick)
+        self.colors_configure()
 
         # self.layer_win = gtk.Window(gtk.WINDOW_TOPLEVEL)
         # self.layer_vbox = gtk.VBox()
@@ -257,16 +271,6 @@ class NesTileEdit:
         #                             gtk.gdk.LEAVE_NOTIFY_MASK |
         #                             gtk.gdk._2BUTTON_PRESS)
 
-        # self.edit_win.connect('delete_event', self.delete, 'edit')
-        # self.edit_canvas.connect('configure_event', self.edit_configure)
-        # self.edit_canvas.connect('expose_event', self.edit_expose)
-        # self.edit_canvas.connect('button_press_event', self.edit_click)
-        # self.edit_canvas.connect('motion_notify_event', self.edit_motion)
-        # self.edit_canvas.set_events(gtk.gdk.EXPOSURE_MASK |
-        #                             gtk.gdk.BUTTON_PRESS_MASK |
-        #                             gtk.gdk.LEAVE_NOTIFY_MASK |
-        #                             gtk.gdk.POINTER_MOTION_MASK |
-        #                             gtk.gdk.POINTER_MOTION_HINT_MASK)
 
         # self.layer_win.connect('delete_event', self.delete, 'layer')
         # self.layer_grid.connect('configure_event', self.layer_configure)
@@ -569,75 +573,79 @@ class NesTileEdit:
     # Tile edit area callbacks
 
 
-    def edit_configure(self, widget, event, data=None):
-        self.edit_pixmap.draw_rectangle(self.edit_canvas.get_style().black_gc,
-                                        True, 0, 0, 128, 128)
-
-        return True
-
-
-    def edit_expose(self, widget, event, data=None):
-        x, y, width, height = event.area
-        widget.window.draw_drawable(widget.get_style().fg_gc[gtk.STATE_NORMAL],
-                                    self.edit_pixmap, x, y, x, y,
-                                    width, height)
-        return False
+    # def edit_configure(self, widget, event, data=None):
+    #     self.edit_pixmap.draw_rectangle(self.edit_canvas.get_style().black_gc,
+    #                                     True, 0, 0, 128, 128)
+    #
+    #     return True
 
 
-    def edit_click(self, widget, event, data=None):
-        if event.type == gtk.gdk.BUTTON_PRESS:
-            self.modified = True
-            self.draw_box(event.x, event.y, 16, 16, 128)
-            self.draw_box_tileset(event.x, event.y, 16, 16, 128)
-            self.draw_box_layer(event.x, event.y, 16, 16, 128)
+    # def edit_expose(self, widget, event, data=None):
+    #     x, y, width, height = event.area
+    #     widget.window.draw_drawable(widget.get_style().fg_gc[gtk.STATE_NORMAL],
+    #                                 self.edit_pixmap, x, y, x, y,
+    #                                 width, height)
+    #     return False
 
 
-    def edit_motion(self, widget, event, data=None):
-        if event.is_hint:
-            x, y, state = event.window.get_pointer()
-        else:
-            x = event.x
-            y = event.y
-            state = event.state
+    def edit_click(self, event):
+        self.modified = True
+        self.draw_box_edit(event.x, event.y, 16, 16, 8)
+        self.draw_box_tileset(event.x, event.y, 16, 16, 8, 16)
+        self.draw_box_layer(event.x, event.y, 16, 16, 128)
 
-        if state & gtk.gdk.BUTTON1_MASK:
-            self.modified = True
-            self.draw_box(event.x, event.y, 16, 16, 128)
-            self.draw_box_tileset(event.x, event.y, 16, 16, 128)
-            self.draw_box_layer(event.x, event.y, 16, 16, 128)
+
+    #def edit_motion(self, event):
+    #    print (event)
+    #    return
+    #    if event.is_hint:
+    #        x, y, state = event.window.get_pointer()
+    #    else:
+    #        x = event.x
+    #        y = event.y
+    #        state = event.state
+    #
+    #    if state & gtk.gdk.BUTTON1_MASK:
+    #        self.modified = True
+    #        self.draw_box_edit(event.x, event.y, 16, 16, 8)
+    #        self.draw_box_tileset(event.x, event.y, 16, 16, 8, 16)
+    #        self.draw_box_layer(event.x, event.y, 16, 16, 128)
 
     # Tile edit color selection callbacks
 
 
-    def colors_configure(self, widget, event, data=None):
-        gc = event.window.new_gc()
+    def colors_configure(self):
+        # gc = event.window.new_gc()
 
         for i in range(4):
             x = (i * 32)
-            y = 0
-            color = self.edit_colors.get_colormap().alloc_color(
-                               256 * nes_palette[self.current_pal[i]][0],
-                               256 * nes_palette[self.current_pal[i]][1],
-                               256 * nes_palette[self.current_pal[i]][2])
+            # y = 0
+            # color = self.edit_colors.get_colormap().alloc_color(
+            #                    256 * nes_palette[self.current_pal[i]][0],
+            #                    256 * nes_palette[self.current_pal[i]][1],
+            #                    256 * nes_palette[self.current_pal[i]][2])
+            #
+            # gc.foreground = color
+            color = get_color_string( nes_palette[self.current_pal[i]] )
+            # self.colors_pixmap.draw_rectangle(gc, True, x, y, 32, 32)
+            self.draw_box_i( self.colors_pixmap, i, 32, 32, 4, color)
 
-            gc.foreground = color
-            self.colors_pixmap.draw_rectangle(gc, True, x, y, 32, 32)
 
         return True
 
 
-    def colors_expose(self, widget, event, data=None):
-        x, y, width, height = event.area
-        widget.window.draw_drawable(widget.get_style().fg_gc[gtk.STATE_NORMAL],
-                                    self.colors_pixmap, x, y, x, y,
-                                    width, height)
-        return False
+    # def colors_expose(self, widget, event, data=None):
+    #     x, y, width, height = event.area
+    #     widget.window.draw_drawable(widget.get_style().fg_gc[gtk.STATE_NORMAL],
+    #                                 self.colors_pixmap, x, y, x, y,
+    #                                 width, height)
+    #     return False
 
 
-    def colors_leftclick(self, event, data=None):
-        self.current_col = self.box_number(event.x, event.y, 32, 32, 128)
+    def colors_leftclick(self, event):
+        self.current_col = self.box_number(event.x, event.y, 32, 32, 4)
 
-    def colors_rightclick(self, event, data=None):
+    def colors_rightclick(self, event):
         self.create_palette_win()
 
 
@@ -713,25 +721,10 @@ class NesTileEdit:
 
 
     def palette_configure(self, event=None):
-
-        #gc = event.window.new_gc()
-
         # Draws the colors blocks for selecting from the NES palette
         for i in range(64):
-            #x = (i * 16) % 256
-            x = (i  % 16) * 16
-            y = (i // 16) * 16
-            # color = self.palette_pick.get_colormap().alloc_color(
-            #                 nes_palette[i][0] * 256, nes_palette[i][1] * 256,
-            #                 nes_palette[i][2] * 256)
-            # gc.foreground = color
             color = get_color_string(nes_palette[i])
-
-
-            #self.palette_pixmap.draw_rectangle(gc, True, x, y, 16, 16)
-            self.palette_pick.create_rectangle( x,y,x+16,y+16, fill=color)
-
-        return True
+            self.draw_box_i(self.palette_pick, i, 16, 16, 16, color)
 
 
     #def palette_expose(self, event):
@@ -744,7 +737,7 @@ class NesTileEdit:
 
 
     def palette_click(self, event):
-        new_color = self.box_number(event.x, event.y, 16, 16, 256)
+        new_color = self.box_number(event.x, event.y, 16, 16, 16)
         if new_color == self.current_pal[0] or \
          new_color == self.current_pal[1] or \
          new_color == self.current_pal[2] or \
@@ -833,54 +826,64 @@ class NesTileEdit:
     def box_number(self, x, y, x_len, y_len, rowspan):
         # If a square is split up into boxes each of size x_len by
         # y_len, the boxes are numbered 0 through box_num starting at the
-        # upper left corner of the square, and the square's horizontal size is
+        # upper left corner of the square, and the number of squares in a row is
         # rowspan, then this function returns the box number which contains
         # the coordinates x, y.
 
-
-        #return int(x / x_len) % rowspan + y_len * int(y / y_len)
-        return int(x / x_len) % rowspan + int(rowspan / x_len) * int(y / y_len)
+        return (x // x_len) + rowspan * (y // y_len)
 
 
-    def draw_box(self, x, y, x_len, y_len, rowspan):
+    def draw_box_i( self, canvas, i, x_len, y_len, rowspan, color):
+        x = (i  % rowspan) * x_len
+        y = (i // rowspan) * y_len
+        canvas.create_rectangle( x,y,x+x_len,y+y_len, fill=color)
+
+
+    def draw_box_edit(self, x, y, x_len, y_len, rowspan):
         # Given the x,y coordinates, x and y length of the pixels in the tile,
         # and the number of pixels the drawing area is across, draw a box at
         # the tile with the currently selected color
-        gc = self.edit_canvas.window.new_gc()
 
-        color = self.edit_canvas.get_colormap().alloc_color(
-                    256 * nes_palette[self.current_pal[self.current_col]][0],
-                    256 * nes_palette[self.current_pal[self.current_col]][1],
-                    256 * nes_palette[self.current_pal[self.current_col]][2])
-        gc.foreground = color
+        # gc = self.edit_canvas.window.new_gc()
+        #
+        # color = self.edit_canvas.get_colormap().alloc_color(
+        #             256 * nes_palette[self.current_pal[self.current_col]][0],
+        #             256 * nes_palette[self.current_pal[self.current_col]][1],
+        #             256 * nes_palette[self.current_pal[self.current_col]][2])
+        # gc.foreground = color
+        color = get_color_string(nes_palette[self.current_pal[self.current_col]])
 
-        x_int = (int(x / x_len) * x_len) % rowspan
-        y_int = int(y / y_len) * y_len
-        self.edit_pixmap.draw_rectangle(gc, True, x_int, y_int, x_len, x_len)
-        self.edit_canvas.queue_draw_area(x_int, y_int, x_len, y_len)
+        # x_int = (int(x / x_len) * x_len) % rowspan
+        # y_int = int(y / y_len) * y_len
+        i = self.box_number(x, y, x_len, y_len, rowspan)
+
+        # self.edit_pixmap.draw_rectangle(gc, True, x_int, y_int, x_len, x_len)
+        # self.edit_canvas.queue_draw_area(x_int, y_int, x_len, y_len)
+        self.draw_box_i(self.edit_pixmap, i, x_len, y_len, rowspan, color)
 
 
-    def draw_box_tileset(self, x, y, x_len, y_len, rowspan):
+    def draw_box_tileset(self, x, y, x_len, y_len, rowspan, tilespan):
         # Same as above, but does it for the tileset window
-        gc = self.main_tileset.window.new_gc()
-        color = self.main_tileset.get_colormap().alloc_color(
-                    self.current_col * 21845,
-                    self.current_col * 21845,
-                    self.current_col * 21845)
-        gc.foreground = color
+        # gc = self.main_tileset.window.new_gc()
+        # color = self.main_tileset.get_colormap().alloc_color(
+        #             self.current_col * 21845,
+        #             self.current_col * 21845,
+        #             self.current_col * 21845)
+        # gc.foreground = color
+        color = [ "#000000", "#00FFFF", "#FF00FF", "#FFFF00"][self.current_col]
 
-        x_int = (int(x / x_len) * 2) % rowspan + \
-                16 * (self.current_tile_num % 16)
-        y_int = int(y / y_len) * 2 + 16 * int(self.current_tile_num / 16)
+        tile_y, tile_x = divmod(self.current_tile_num, tilespan)
 
-        self.tileset_pixmap.draw_rectangle(gc, True, x_int, y_int, 2, 2)
-        self.main_tileset.queue_draw_area(x_int, y_int, 2, 2)
+        x_int = (x // x_len) * 2 + 16 * tile_x
+        y_int = (y // y_len) * 2 + 16 * tile_y
+
+        # self.tileset_pixmap.draw_rectangle(gc, True, x_int, y_int, 2, 2)
+        # self.main_tileset.queue_draw_area(x_int, y_int, 2, 2)
+        self.tileset_pixmap.create_rectangle( x_int,y_int,x_int+2,y_int+2, fill=color, outline=color)
 
 
     def draw_box_layer(self, x, y, x_len, y_len, rowspan):
         # Updates all the tiles laid on the tile layer of the same kind
-
-
         if int(x) > rowspan:
             return
 
@@ -889,22 +892,21 @@ class NesTileEdit:
             return
 
         for c in t_info:
-
             if self.tile_at_xy[c[0] / 16][c[1] / 16] == self.current_tile_num:
-
-
-                gc = self.layer_grid.window.new_gc()
-                color = self.layer_grid.get_colormap().alloc_color(
-                        nes_palette[c[2][self.current_col]][0] * 256,
-                        nes_palette[c[2][self.current_col]][1] * 256,
-                        nes_palette[c[2][self.current_col]][2] * 256)
-                gc.foreground = color
+                # gc = self.layer_grid.window.new_gc()
+                # color = self.layer_grid.get_colormap().alloc_color(
+                #         nes_palette[c[2][self.current_col]][0] * 256,
+                #         nes_palette[c[2][self.current_col]][1] * 256,
+                #         nes_palette[c[2][self.current_col]][2] * 256)
+                # gc.foreground = color
+                color =  get_color_string(nes_palette[c[2][self.current_col]])
 
                 x_int = int(x / x_len) * 2 + c[0]
                 y_int = int(y / y_len) * 2 + c[1]
 
-                self.layer_pixmap.draw_rectangle(gc, True, x_int, y_int, 2, 2)
-                self.layer_grid.queue_draw_area(x_int, y_int, 2, 2)
+                # self.layer_pixmap.draw_rectangle(gc, True, x_int, y_int, 2, 2)
+                # self.layer_grid.queue_draw_area(x_int, y_int, 2, 2)
+                self.layer_pixmap.create_rectangle( x_int,y_int,x_int+2,y_int+2, fill=color, outline=color)
 
 
 
