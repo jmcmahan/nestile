@@ -42,6 +42,9 @@ def callback(event):
     # print "clicked at", event.x, event.y
     print ("Event"+str( event ))
 
+def get_color_string( color_tuple ):
+    return "#{:02x}{:02x}{:02x}".format(color_tuple[0], color_tuple[1], color_tuple[2])
+
 class NesTileEdit:
     """Class for the NES Tile Editor program
 
@@ -689,6 +692,8 @@ class NesTileEdit:
         self.palette_close = ttk.Button(self.palette_win, text = 'Close', command = self.palette_close_click)
         self.palette_close.grid(column=0, row=1, sticky="sew")
 
+        self.palette_configure()
+
 
         #self.palette_win.connect('delete_event', self.delete, 'noquit')
         #self.palette_pick.connect('configure_event', self.palette_configure)
@@ -707,34 +712,38 @@ class NesTileEdit:
         #self.palette_win.show_all()
 
 
-    def palette_configure(self, widget, event, data=None):
+    def palette_configure(self, event=None):
 
-        gc = event.window.new_gc()
+        #gc = event.window.new_gc()
 
         # Draws the colors blocks for selecting from the NES palette
         for i in range(64):
-            x = (i * 16) % 256
-            y = (i / 16) * 16
-            color = self.palette_pick.get_colormap().alloc_color(
-                            nes_palette[i][0] * 256, nes_palette[i][1] * 256,
-                            nes_palette[i][2] * 256)
-            gc.foreground = color
+            #x = (i * 16) % 256
+            x = (i  % 16) * 16
+            y = (i // 16) * 16
+            # color = self.palette_pick.get_colormap().alloc_color(
+            #                 nes_palette[i][0] * 256, nes_palette[i][1] * 256,
+            #                 nes_palette[i][2] * 256)
+            # gc.foreground = color
+            color = get_color_string(nes_palette[i])
 
-            self.palette_pixmap.draw_rectangle(gc, True, x, y, 16, 16)
+
+            #self.palette_pixmap.draw_rectangle(gc, True, x, y, 16, 16)
+            self.palette_pick.create_rectangle( x,y,x+16,y+16, fill=color)
 
         return True
 
 
-    def palette_expose(self, widget, event, data=None):
-        x, y, width, height = event.area
-        widget.window.draw_drawable(
-                                widget.get_style().fg_gc[gtk.STATE_NORMAL],
-                                self.palette_pixmap, x, y, x, y, width, height)
+    #def palette_expose(self, event):
+    #    x, y, width, height = event.area
+    #    widget.window.draw_drawable(
+    #                            widget.get_style().fg_gc[gtk.STATE_NORMAL],
+    #                            self.palette_pixmap, x, y, x, y, width, height)
+    #
+    #    return False
 
-        return False
 
-
-    def palette_click(self, event, data=None):
+    def palette_click(self, event):
         new_color = self.box_number(event.x, event.y, 16, 16, 256)
         if new_color == self.current_pal[0] or \
          new_color == self.current_pal[1] or \
@@ -745,7 +754,7 @@ class NesTileEdit:
             self.update_pal(new_color)
 
 
-    def palette_close_click(self, data=None):
+    def palette_close_click(self):
         self.palette_win.destroy()
         return True
 
@@ -827,6 +836,7 @@ class NesTileEdit:
         # upper left corner of the square, and the square's horizontal size is
         # rowspan, then this function returns the box number which contains
         # the coordinates x, y.
+
 
         #return int(x / x_len) % rowspan + y_len * int(y / y_len)
         return int(x / x_len) % rowspan + int(rowspan / x_len) * int(y / y_len)
