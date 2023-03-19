@@ -11,9 +11,7 @@ import os
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
-
-#from tkinter.messagebox import showerror
-
+from tkinter import filedialog
 
 
 nes_palette = (
@@ -38,7 +36,7 @@ nes_palette = (
    (0xb3,0xee,0xff), (0xdd,0xdd,0xdd), (0x11,0x11,0x11), (0x11,0x11,0x11))
 
 
-
+nes_filetypes=[('Raw files', '.*'), ('NES files', '.nes')]
 
 def callback(event):
     # print "clicked at", event.x, event.y
@@ -291,7 +289,6 @@ class NesTileEdit:
 
 
     def destroy(self, data=None):
-        self.modified = True
         if not self.check_to_save_tileset():
             return False
         self.main_win.destroy()
@@ -369,7 +366,7 @@ class NesTileEdit:
                 # Yes
                 # if self.filename:
                 # do same as if there's no filename for now
-                if not self.save_tileset(None):
+                if not self.save_tileset():
                     messagebox.showerror("Error", "Unable to save tile set!")
                     return False
             #else: No pass
@@ -415,7 +412,7 @@ class NesTileEdit:
         return True
 
 
-    def open_tileset(self, widget):
+    def open_tileset(self):
         # if self.modified:
         #     msg = "Save current file?"
         #     dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
@@ -435,35 +432,48 @@ class NesTileEdit:
         if not self.check_to_save_tileset():
             return False
 
-        self.file_win = gtk.FileSelection("Open")
-        self.file_win.ok_button.connect("clicked", self.do_open)
-        self.file_win.cancel_button.connect("clicked",
-                                    lambda w: self.file_win.destroy())
-        self.file_win.show()
-        return True
+        # self.file_win = gtk.FileSelection("Open")
+        # self.file_win.ok_button.connect("clicked", self.do_open)
+        # self.file_win.cancel_button.connect("clicked",
+        #                             lambda w: self.file_win.destroy())
+        # self.file_win.show()
+        filename = filedialog.askopenfilename(filetypes=nes_filetypes)
+        print (filename)
+        if filename is None or "" == filename or () == filename:
+            return False
+        return self.do_open( filename )
 
 
 
-    def close_tileset(self, widget):
-        pass
+    def close_tileset(self):
+        return self.new_tileset()
 
 
-    def save_tileset(self, widget, data=None):
+    def save_tileset(self):
         # Bad
-        self.save_success = False
-        while not self.save_success:
-            self.file_win = gtk.FileSelection("Save As")
-            self.file_win.ok_button.connect("clicked", self.do_save)
-            self.file_win.cancel_button.connect("clicked",
-                                    lambda w: self.file_win.destroy())
+        # self.save_success = False
+        # while not self.save_success:
+        #     self.file_win = gtk.FileSelection("Save As")
+        #     self.file_win.ok_button.connect("clicked", self.do_save)
+        #     self.file_win.cancel_button.connect("clicked",
+        #                             lambda w: self.file_win.destroy())
+        #
+        #     self.file_win.set_modal(True)
+        #     result = self.file_win.run()
+        #     if result == gtk.RESPONSE_CANCEL:
+        #         return False
+        #     else:
+        #         self.file_win.destroy()
+        #         return True
+        filename = filedialog.asksaveasfilename(filetypes=nes_filetypes)
+        if filename is None or "" == filename or () == filename:
+            return False
 
-            self.file_win.set_modal(True)
-            result = self.file_win.run()
-            if result == gtk.RESPONSE_CANCEL:
-                return False
-            else:
-                self.file_win.destroy()
-                return True
+        if self.do_save( filename ):
+            return True
+
+        messagebox.showerror("Error", "Unable to save to `{}`".format(filename))
+        return False
 
     def config_tileset(self, widget):
         dialog = gtk.Dialog('Configuration', self.main_win,
@@ -950,11 +960,12 @@ class NesTileEdit:
         self.edit_canvas.queue_draw_area(0, 0, 128, 128)
 
 
-    def do_save(self, widget, data=None):
+    def do_save(self, filename):
         # Later, try to differentiate between different file formats here
         # but just treat everything like a raw binary file for now
         current = self.filename
-        self.filename = self.file_win.get_filename()
+        #self.filename = self.file_win.get_filename()
+        self.filename = filename
         if self.filename != current:
             if os.path.exists(self.filename):
                 # dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
@@ -963,10 +974,9 @@ class NesTileEdit:
                 #                            "Overwrite %s?" % self.filename)
                 # result = dialog.run()
                 # dialog.destroy()
-                result = messagebox.askyesno("Question","Overwrite %s?" % self.filename)
+                result = messagebox.askyesno("Question","Overwrite {}?".format(self.filename) )
                 #if result != gtk.RESPONSE_YES:
                 if not result:
-                    self.save_success = False
                     self.filename = current
                     return False
 
@@ -992,14 +1002,12 @@ class NesTileEdit:
 
         output_string = ''.join(output_list)
 
-        f = open(self.filename, 'wb')
-        if self.format == 'raw':
-            f.write(output_string)
-        elif self.format == 'ines':
-            f.write(self.ines_data + output_string)
-        f.close()
-        self.modified = False
-        self.save_success = True
+        with open(self.filename, 'wb') as f:
+            if self.format == 'raw':
+                f.write(output_string)
+            elif self.format == 'ines':
+                f.write(self.ines_data + output_string)
+            self.modified = False
         return True
 
 
@@ -1030,12 +1038,12 @@ class NesTileEdit:
         return ''.join(return_string)
 
 
-    def do_open(self, widget, data=None):
-        self.filename = self.file_win.get_filename()
-        self.file_win.destroy()
-        f = open(self.filename, 'rb')
-        fdata = f.read()
-        f.close()
+    def do_open(self, filename):
+        # self.filename = self.file_win.get_filename()
+        # self.file_win.destroy()
+        self.filename = filename
+        with open(self.filename, 'rb') as f:
+            fdata = f.read()
 
         if self.filename.split('.')[-1] == 'nes':
             self.format = 'ines'
