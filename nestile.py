@@ -10,6 +10,8 @@
 import os
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox
+
 #from tkinter.messagebox import showerror
 
 
@@ -37,26 +39,17 @@ nes_palette = (
 
 
 
+
+def callback(event):
+    # print "clicked at", event.x, event.y
+    print ("Event"+str( event ))
+
 class NesTileEdit:
     """Class for the NES Tile Editor program
 
     """
 
 
-    main_ui = """<ui>
-                  <menubar name="MenuBar">
-                   <menu action="File">
-                    <menuitem action="New"/>
-                    <menuitem action="Open"/>
-                    <menuitem action="Save"/>
-                    <menuitem action="Quit"/>
-                   </menu>
-                   <menu action="Edit">
-                    <menuitem action="Config"/>
-                   </menu>
-                  </menubar>
-                 </ui>
-              """
 
 
     def __init__(self):
@@ -121,6 +114,7 @@ class NesTileEdit:
         self.main_win.resizable(False, False)
         self.tileset_pixmap = tk.Canvas(self.main_win, width=256, height=16 * self.chr_rom_size // 256, bg='#FF0000', scrollregion=(0,0,256,16 * self.chr_rom_size // 128))
         self.tileset_pixmap.grid(row=0, column=0)
+        self.main_win.protocol("WM_DELETE_WINDOW", self.destroy)
 
         #scroll_x = tk.Scrollbar(self.main_win, orient="horizontal", command=self.tileset_pixmap.xview)
         #scroll_x.grid(row=1, column=0, sticky="ew")
@@ -148,7 +142,6 @@ class NesTileEdit:
         # self.edit_win.add(self.edit_vbox)
 
         # self.edit_pixmap = gtk.gdk.Pixmap(None, 128, 128, 16)
-        # self.colors_pixmap = gtk.gdk.Pixmap(None, 128, 128, 16)
 
         self.edit_win = tk.Toplevel(self.main_win)
         self.edit_win.wm_title('Tile #' + str(self.current_tile_num))
@@ -157,9 +150,19 @@ class NesTileEdit:
         self.edit_pixmap = tk.Canvas(self.edit_win, width=128, height=128, bg='#FF0000')
         self.edit_pixmap.grid(column=0, row=0, sticky="new")
 
+        # self.colors_pixmap = gtk.gdk.Pixmap(None, 128, 128, 16)
+        # self.edit_colors.connect('configure_event', self.colors_configure)
+        # self.edit_colors.connect('expose_event', self.colors_expose)
+        # self.edit_colors.connect('button_press_event', self.colors_click)
+        # self.edit_colors.set_events(gtk.gdk.EXPOSURE_MASK |
+        #                             gtk.gdk.BUTTON_PRESS_MASK |
+        #                             gtk.gdk.LEAVE_NOTIFY_MASK |
+        #                             gtk.gdk._2BUTTON_PRESS)
+
         self.colors_pixmap = tk.Canvas(self.edit_win, width=128, height=32, bg='#00FF00')
         self.colors_pixmap.grid(column=0, row=1, sticky="sew")
-
+        self.colors_pixmap.bind("<Button-1>", self.colors_leftclick)
+        self.colors_pixmap.bind("<Button-3>", self.colors_rightclick)
 
         # self.layer_win = gtk.Window(gtk.WINDOW_TOPLEVEL)
         # self.layer_vbox = gtk.VBox()
@@ -195,6 +198,20 @@ class NesTileEdit:
 
         # Setup user interface
 
+        # main_ui = """<ui>
+        #               <menubar name="MenuBar">
+        #                <menu action="File">
+        #                 <menuitem action="New"/>
+        #                 <menuitem action="Open"/>
+        #                 <menuitem action="Save"/>
+        #                 <menuitem action="Quit"/>
+        #                </menu>
+        #                <menu action="Edit">
+        #                 <menuitem action="Config"/>
+        #                </menu>
+        #               </menubar>
+        #              </ui>
+        #           """
         # self.main_accel_group = self.main_uimanager.get_accel_group()
         # self.main_action_group = gtk.ActionGroup('NesTileEdit')
         # self.main_action_group.add_actions(
@@ -250,14 +267,6 @@ class NesTileEdit:
         #                             gtk.gdk.POINTER_MOTION_MASK |
         #                             gtk.gdk.POINTER_MOTION_HINT_MASK)
 
-        # self.edit_colors.connect('configure_event', self.colors_configure)
-        # self.edit_colors.connect('expose_event', self.colors_expose)
-        # self.edit_colors.connect('button_press_event', self.colors_click)
-        # self.edit_colors.set_events(gtk.gdk.EXPOSURE_MASK |
-        #                             gtk.gdk.BUTTON_PRESS_MASK |
-        #                             gtk.gdk.LEAVE_NOTIFY_MASK |
-        #                             gtk.gdk._2BUTTON_PRESS)
-
         # self.layer_win.connect('delete_event', self.delete, 'layer')
         # self.layer_grid.connect('configure_event', self.layer_configure)
         # self.layer_grid.connect('expose_event', self.layer_expose)
@@ -273,49 +282,54 @@ class NesTileEdit:
         # self.main_win.show_all()
         # self.edit_win.show_all()
         # self.layer_win.show_all()
+
+        self.tileset_pixmap.focus_force()
         return
 
 
     # Generic callbacks
 
 
-    def destroy(self, widget=None, data=None):
+    def destroy(self, data=None):
+        self.modified = True
+        if not self.check_to_save_tileset():
+            return False
         self.main_win.destroy()
-        return
+        return True
         # don't like this "self.quitting" business, but whatever, it works
-        if self.modified and not self.quitting:
-            msg = "Save before quitting?"
-            dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
-                                       gtk.MESSAGE_QUESTION,
-                                       gtk.BUTTONS_YES_NO, msg)
-            dialog.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
-            result = dialog.run()
-            dialog.destroy()
-            if result == gtk.RESPONSE_YES:
-                if self.filename:
-                    # do same as if there's no filename for now
-                    if self.save_tileset(None):
-                        self.quitting = True
-                        gtk.main_quit()
-                    else:
-                        return False
-
-                else:
-                    if self.save_tileset(None):
-                        self.quitting = True
-                        gtk.main_quit()
-                    else:
-                        return False
-
-            elif result == gtk.RESPONSE_CANCEL:
-                return False
-            else:
-                self.quitting = True
-                gtk.main_quit()
-
-        else:
-            self.quitting = True
-            gtk.main_quit()
+        # if self.modified and not self.quitting:
+        #     msg = "Save before quitting?"
+        #     dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
+        #                                gtk.MESSAGE_QUESTION,
+        #                                gtk.BUTTONS_YES_NO, msg)
+        #     dialog.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
+        #     result = dialog.run()
+        #     dialog.destroy()
+        #     if result == gtk.RESPONSE_YES:
+        #         if self.filename:
+        #             # do same as if there's no filename for now
+        #             if self.save_tileset(None):
+        #                 self.quitting = True
+        #                 gtk.main_quit()
+        #             else:
+        #                 return False
+        #
+        #         else:
+        #             if self.save_tileset(None):
+        #                 self.quitting = True
+        #                 gtk.main_quit()
+        #             else:
+        #                 return False
+        #
+        #     elif result == gtk.RESPONSE_CANCEL:
+        #         return False
+        #     else:
+        #         self.quitting = True
+        #         gtk.main_quit()
+        #
+        # else:
+        #     self.quitting = True
+        #     gtk.main_quit()
 
 
     def delete(self, widget, event, data=None):
@@ -330,24 +344,60 @@ class NesTileEdit:
 
     # Menubar callbacks
 
-
-    def new_tileset(self, widget):
+    def check_to_save_tileset(self ):
         if self.modified:
-            msg = "Save current file?"
-            dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
-                                       gtk.MESSAGE_QUESTION,
-                                       gtk.BUTTONS_YES_NO, msg)
-            dialog.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
-            result = dialog.run()
-            dialog.destroy()
-            if result == gtk.RESPONSE_YES:
-                if self.filename:
-                    # do same as if there's no filename for now
-                    if not self.save_tileset(None):
-                        return False
-
-            elif result == gtk.RESPONSE_CANCEL:
+            # msg = "Save current file?"
+            # dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
+            #                            gtk.MESSAGE_QUESTION,
+            #                            gtk.BUTTONS_YES_NO, msg)
+            # dialog.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
+            # result = dialog.run()
+            # dialog.destroy()
+            result = messagebox.askyesnocancel("Question", "Save current file?")
+            # if result == gtk.RESPONSE_YES:
+            #     if self.filename:
+            #         # do same as if there's no filename for now
+            #         if not self.save_tileset(None):
+            #             return False
+            #
+            # elif result == gtk.RESPONSE_CANCEL:
+            #     return False
+            if result is None:
+                # Cancel
                 return False
+            elif result:
+                # Yes
+                # if self.filename:
+                # do same as if there's no filename for now
+                if not self.save_tileset(None):
+                    messagebox.showerror("Error", "Unable to save tile set!")
+                    return False
+            #else: No pass
+        return True
+
+
+
+
+    def new_tileset(self):
+        # if self.modified:
+        #     msg = "Save current file?"
+        #     dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
+        #                                gtk.MESSAGE_QUESTION,
+        #                                gtk.BUTTONS_YES_NO, msg)
+        #     dialog.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
+        #     result = dialog.run()
+        #     dialog.destroy()
+        #     if result == gtk.RESPONSE_YES:
+        #         if self.filename:
+        #             # do same as if there's no filename for now
+        #             if not self.save_tileset(None):
+        #                 return False
+        #
+        #     elif result == gtk.RESPONSE_CANCEL:
+        #         return False
+
+        if not self.check_to_save_tileset():
+            return False
 
         self.chr_rom_size = 8192
 
@@ -362,25 +412,28 @@ class NesTileEdit:
         self.modified = False
         self.current_tile_num = 0
         self.update_tile_edit()
+        return True
 
 
     def open_tileset(self, widget):
-        if self.modified:
-            msg = "Save current file?"
-            dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
-                                       gtk.MESSAGE_QUESTION,
-                                       gtk.BUTTONS_YES_NO, msg)
-            dialog.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
-            result = dialog.run()
-            dialog.destroy()
-            if result == gtk.RESPONSE_YES:
-                if self.filename:
-                    # do same as if there's no filename for now
-                    if not self.save_tileset(None):
-                        return False
-
-            elif result == gtk.RESPONSE_CANCEL:
-                return False
+        # if self.modified:
+        #     msg = "Save current file?"
+        #     dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
+        #                                gtk.MESSAGE_QUESTION,
+        #                                gtk.BUTTONS_YES_NO, msg)
+        #     dialog.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
+        #     result = dialog.run()
+        #     dialog.destroy()
+        #     if result == gtk.RESPONSE_YES:
+        #         if self.filename:
+        #             # do same as if there's no filename for now
+        #             if not self.save_tileset(None):
+        #                 return False
+        #
+        #     elif result == gtk.RESPONSE_CANCEL:
+        #         return False
+        if not self.check_to_save_tileset():
+            return False
 
         self.file_win = gtk.FileSelection("Open")
         self.file_win.ok_button.connect("clicked", self.do_open)
@@ -457,12 +510,13 @@ class NesTileEdit:
                     break
 
                 except:
-                    msg = "Invalid size specified."
-                    err_dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
-                                              gtk.MESSAGE_ERROR,
-                                              gtk.BUTTONS_CLOSE, msg)
-                    err_dialog.run()
-                    err_dialog.destroy()
+                    # msg = "Invalid size specified."
+                    # err_dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
+                    #                           gtk.MESSAGE_ERROR,
+                    #                           gtk.BUTTONS_CLOSE, msg)
+                    # err_dialog.run()
+                    # err_dialog.destroy()
+                    messagebox.showerror("Error", "Invalid size specified.")
             elif result == gtk.RESPONSE_OK:
                 break
 
@@ -567,11 +621,11 @@ class NesTileEdit:
         return False
 
 
-    def colors_click(self, widget, event, data=None):
-        if event.type == gtk.gdk._2BUTTON_PRESS:
-            self.create_palette_win()
-        elif event.type == gtk.gdk.BUTTON_PRESS:
-            self.current_col = self.box_number(event.x, event.y, 32, 32, 128)
+    def colors_leftclick(self, event, data=None):
+        self.current_col = self.box_number(event.x, event.y, 32, 32, 128)
+
+    def colors_rightclick(self, event, data=None):
+        self.create_palette_win()
 
 
     # Tile layer area callbacks
@@ -604,31 +658,43 @@ class NesTileEdit:
     def create_palette_win(self):
 
         # Create window for selecting color palette
-        self.palette_win = gtk.Window(gtk.WINDOW_TOPLEVEL)
-        self.palette_vbox = gtk.VBox()
-        self.palette_pick = gtk.DrawingArea()
-        self.palette_close = gtk.Button('Close')
+        #self.palette_win = gtk.Window(gtk.WINDOW_TOPLEVEL)
+        #self.palette_vbox = gtk.VBox()
+        #self.palette_pick = gtk.DrawingArea()
+        #self.palette_close = gtk.Button('Close')
 
-        self.palette_win.set_title('Color Chooser')
-        self.palette_win.set_resizable(False)
-        self.palette_pick.set_size_request(256, 64)
+        #self.palette_win.set_title('Color Chooser')
+        #self.palette_win.set_resizable(False)
+        #self.palette_pick.set_size_request(256, 64)
 
-        self.palette_win.connect('delete_event', self.delete, 'noquit')
-        self.palette_pick.connect('configure_event', self.palette_configure)
-        self.palette_pick.connect('expose_event', self.palette_expose)
-        self.palette_pick.connect('button_press_event', self.palette_click)
-        self.palette_close.connect('clicked', self.palette_close_click)
+        self.palette_win = tk.Toplevel(self.main_win)
+        self.palette_win.wm_title('Color Chooser')
+        #self.palette_win.geometry('256x64')
+        self.palette_win.resizable(False, False)
 
-        self.palette_pick.set_events(gtk.gdk.EXPOSURE_MASK |
-                                     gtk.gdk.BUTTON_PRESS_MASK |
-                                     gtk.gdk.LEAVE_NOTIFY_MASK |
-                                     gtk.gdk._2BUTTON_PRESS)
+        self.palette_pick = tk.Canvas(self.palette_win, width=256, height=64, bg='#FFFFFF')
+        self.palette_pick.grid(column=0, row=0, sticky="new")
+        self.palette_pick.bind("<Button-1>", self.palette_click)
 
-        self.palette_vbox.pack_start(self.palette_pick, False)
-        self.palette_vbox.pack_end(self.palette_close, False)
-        self.palette_win.add(self.palette_vbox)
+        self.palette_close = ttk.Button(self.palette_win, text = 'Close', command = self.palette_close_click)
+        self.palette_close.grid(column=0, row=1, sticky="sew")
 
-        self.palette_win.show_all()
+
+        #self.palette_win.connect('delete_event', self.delete, 'noquit')
+        #self.palette_pick.connect('configure_event', self.palette_configure)
+        #self.palette_pick.connect('expose_event', self.palette_expose)
+        #self.palette_pick.connect('button_press_event', self.palette_click)
+        #self.palette_close.connect('clicked', self.palette_close_click)
+        #self.palette_pick.set_events(gtk.gdk.EXPOSURE_MASK |
+                                     #gtk.gdk.BUTTON_PRESS_MASK |
+                                     #gtk.gdk.LEAVE_NOTIFY_MASK |
+                                     #gtk.gdk._2BUTTON_PRESS)
+
+        #self.palette_vbox.pack_start(self.palette_pick, False)
+        #self.palette_vbox.pack_end(self.palette_close, False)
+        #self.palette_win.add(self.palette_vbox)
+
+        #self.palette_win.show_all()
 
 
     def palette_configure(self, widget, event, data=None):
@@ -658,19 +724,18 @@ class NesTileEdit:
         return False
 
 
-    def palette_click(self, widget, event, data=None):
-        if event.type == gtk.gdk.BUTTON_PRESS:
-            new_color = self.box_number(event.x, event.y, 16, 16, 256)
-            if new_color == self.current_pal[0] or \
-             new_color == self.current_pal[1] or \
-             new_color == self.current_pal[2] or \
-             new_color == self.current_pal[3]:
-                return
-            else:
-                self.update_pal(new_color)
+    def palette_click(self, event, data=None):
+        new_color = self.box_number(event.x, event.y, 16, 16, 256)
+        if new_color == self.current_pal[0] or \
+         new_color == self.current_pal[1] or \
+         new_color == self.current_pal[2] or \
+         new_color == self.current_pal[3]:
+            return
+        else:
+            self.update_pal(new_color)
 
 
-    def palette_close_click(self, widget, data=None):
+    def palette_close_click(self, data=None):
         self.palette_win.destroy()
         return True
 
@@ -892,13 +957,15 @@ class NesTileEdit:
         self.filename = self.file_win.get_filename()
         if self.filename != current:
             if os.path.exists(self.filename):
-                dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
-                                           gtk.MESSAGE_QUESTION,
-                                           gtk.BUTTONS_YES_NO,
-                                           "Overwrite %s?" % self.filename)
-                result = dialog.run()
-                dialog.destroy()
-                if result != gtk.RESPONSE_YES:
+                # dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
+                #                            gtk.MESSAGE_QUESTION,
+                #                            gtk.BUTTONS_YES_NO,
+                #                            "Overwrite %s?" % self.filename)
+                # result = dialog.run()
+                # dialog.destroy()
+                result = messagebox.askyesno("Question","Overwrite %s?" % self.filename)
+                #if result != gtk.RESPONSE_YES:
+                if not result:
                     self.save_success = False
                     self.filename = current
                     return False
