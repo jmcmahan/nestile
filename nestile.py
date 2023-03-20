@@ -12,6 +12,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 from tkinter import filedialog
+from tkinter import simpledialog
 
 
 nes_palette = (
@@ -284,17 +285,12 @@ class NesTileEdit:
         self.main_menubar.add_cascade(label="Edit", menu=self.main_edit_menu)
 
 
-        ############ CONTINUE HERE #############################################
-
-
-
-
-
         # Widget display
 
         # self.main_win.show_all()
         # self.edit_win.show_all()
         # self.layer_win.show_all()
+        self.new_tileset()
 
         self.tileset_pixmap.focus_force()
         return
@@ -412,17 +408,24 @@ class NesTileEdit:
             return False
 
         self.chr_rom_size = 8192
+        self.format = 'raw'
+        self.tile_data = [None]* (self.chr_rom_size//8)
 
-        self.main_tileset.set_size_request(256, 16 * self.chr_rom_size / 256)
-        self.tileset_pixmap = gtk.gdk.Pixmap(None, 256,
-                                             16 * self.chr_rom_size / 128, 16)
 
-        self.tileset_pixmap.draw_rectangle(
-                                self.main_tileset.get_style().black_gc,
-                                True, 0, 0, 256, 16 * self.chr_rom_size / 256)
-        self.main_tileset.queue_draw()
+        # self.main_tileset.set_size_request(256, 16 * self.chr_rom_size / 256)
+        # self.tileset_pixmap = gtk.gdk.Pixmap(None, 256,
+        #                                      16 * self.chr_rom_size / 128, 16)
+        #
+        # self.tileset_pixmap.draw_rectangle(
+        #                         self.main_tileset.get_style().black_gc,
+        #                         True, 0, 0, 256, 16 * self.chr_rom_size / 256)
+        # self.main_tileset.queue_draw()
+        self.tileset_configure()
+
         self.modified = False
         self.current_tile_num = 0
+        if self.tile_data[self.current_tile_num] is None:
+            self.tile_data[self.current_tile_num] = [[0]*8, [0]*8, [0]*8, [0]*8, [0]*8, [0]*8, [0]*8, [0]*8]
         self.update_tile_edit()
         return True
 
@@ -490,70 +493,72 @@ class NesTileEdit:
         messagebox.showerror("Error", "Unable to save to `{}`".format(filename))
         return False
 
-    def config_tileset(self, widget):
-        dialog = gtk.Dialog('Configuration', self.main_win,
-                            gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT)
+    def config_tileset(self):
+        # dialog = gtk.Dialog('Configuration', self.main_win,
+        #                     gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT)
+        #
+        # dialog.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
+        # dialog.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
+        # label = gtk.Label("Size (Bytes)")
+        # entry = gtk.Entry(6)
+        # entry.set_text('%d' % self.chr_rom_size)
+        # dialog.vbox.pack_start(entry, True, True, 0)
+        # dialog.vbox.pack_start(label, True, True, 0)
+        # label.show()
+        # entry.show()
+        if self.format != 'raw':
+            messagebox.showwarning("Warning","Only supported in raw mode.\nUse File->New\nto reset raw mode")
+            return False
 
-        dialog.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
-        dialog.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
-        label = gtk.Label("Size (Bytes)")
-        entry = gtk.Entry(6)
-        entry.set_text('%d' % self.chr_rom_size)
-        dialog.vbox.pack_start(entry, True, True, 0)
-        dialog.vbox.pack_start(label, True, True, 0)
-        label.show()
-        entry.show()
-        result = None
-        while not result == gtk.RESPONSE_CANCEL:
-            result = dialog.run()
-            if result == gtk.RESPONSE_OK and self.format == 'raw':
-                try:
-                    self.chr_rom_size = int(entry.get_text())
-                    if (self.chr_rom_size % 8192):
-                        self.chr_rom_size = 8192 + self.chr_rom_size - \
-                                            (self.chr_rom_size % 8192)
-                    if not self.chr_rom_size:
-                        self.chr_rom_size = 8192
-                    dialog.destroy()
+        result = simpledialog.askinteger('Configuration', "CHR ROM Size (Bytes)", initialvalue=self.chr_rom_size)
+        if result is None:
+            return False
+        try:
+            self.chr_rom_size = result
+            if (self.chr_rom_size % 8192):
+                self.chr_rom_size = 8192 + self.chr_rom_size - \
+                                    (self.chr_rom_size % 8192)
+            if not self.chr_rom_size:
+                self.chr_rom_size = 8192
 
-                    self.main_tileset.set_size_request(256,
-                                                16 * self.chr_rom_size / 256)
-                    pmap = gtk.gdk.Pixmap(None, 256,
-                                          16 * self.chr_rom_size / 128, 16)
+            self.tileset_configure()
 
-                    pmap.draw_rectangle(
-                                self.main_tileset.get_style().black_gc,
-                                True, 0, 0, 256, 16 * self.chr_rom_size / 256)
-                    gc = self.main_tileset.get_style().fg_gc[gtk.STATE_NORMAL]
+            self.current_tile_num = 0
+            self.update_tile_edit()
+            return True
+        except:
+            # msg = "Invalid size specified."
+            # err_dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
+            #                           gtk.MESSAGE_ERROR,
+            #                           gtk.BUTTONS_CLOSE, msg)
+            # err_dialog.run()
+            # err_dialog.destroy()
+            messagebox.showerror("Error", "Invalid size specified.")
+        return False
 
-                    pmap.draw_drawable(gc, self.tileset_pixmap, 0, 0, 0, 0,
-                                       -1, -1)
-                    self.tileset_pixmap = pmap
-                    self.main_tileset.queue_draw()
-                    self.current_tile_num = 0
-                    self.update_tile_edit()
-                    break
-
-                except:
-                    # msg = "Invalid size specified."
-                    # err_dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
-                    #                           gtk.MESSAGE_ERROR,
-                    #                           gtk.BUTTONS_CLOSE, msg)
-                    # err_dialog.run()
-                    # err_dialog.destroy()
-                    messagebox.showerror("Error", "Invalid size specified.")
-            elif result == gtk.RESPONSE_OK:
-                break
-
-        dialog.destroy()
-
-        return True
 
 
     # Tile set callbacks
 
     def tileset_configure(self):
-        self.tileset_pixmap.create_rectangle( 0, 0, 256, 16 * self.chr_rom_size / 256, fill='#000000')
+        #self.main_tileset.set_size_request(256,
+        #                            16 * self.chr_rom_size / 256)
+        #pmap = gtk.gdk.Pixmap(None, 256,
+        #                      16 * self.chr_rom_size / 128, 16)
+        #
+        #pmap.draw_rectangle(
+        #            self.main_tileset.get_style().black_gc,
+        #            True, 0, 0, 256, 16 * self.chr_rom_size / 256)
+        #gc = self.main_tileset.get_style().fg_gc[gtk.STATE_NORMAL]
+        #
+        #pmap.draw_drawable(gc, self.tileset_pixmap, 0, 0, 0, 0,
+        #                   -1, -1)
+        #self.tileset_pixmap = pmap
+        #self.main_tileset.queue_draw()
+
+        self.tileset_pixmap.config(scrollregion=(0,0,256,16 * self.chr_rom_size // 128))
+        self.tileset_pixmap.create_rectangle( 0, 0, 256, 16 * self.chr_rom_size // 128, fill='#FF0000')
+        self.tileset_pixmap.create_rectangle( 0, 0, 256, 16 * self.chr_rom_size // 256, fill='#000000', outline='#FF00FF')
 
         return True
 
@@ -567,7 +572,10 @@ class NesTileEdit:
 
 
     def tileset_click(self, event):
-        self.current_tile_num = self.box_number(event.x, event.y, 16, 16, 256)
+        self.current_tile_num = self.box_number(event.x, event.y, 16, 16, 16)
+        if self.tile_data[self.current_tile_num] is None:
+            self.tile_data[self.current_tile_num] = [[0]*8, [0]*8, [0]*8, [0]*8, [0]*8, [0]*8, [0]*8, [0]*8]
+
 
         # add thing to update edit box with selected tile
         self.update_tile_edit()
@@ -761,67 +769,73 @@ class NesTileEdit:
     def update_pal(self, new_color):
         # Handle change in palette changing displayed colors to reflect it
 
-        # FIX ME!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # This code is terrible. It probably causes bugs, is dependent
-        # on the color depth chosen, and is way too inefficient. However,
-        # it works for the moment, so it will be fixed later, if at all
-        pbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, 128, 128)
-        pbuf.get_from_drawable(self.edit_pixmap,
-                               self.edit_pixmap.get_colormap(), 0, 0, 0, 0,
-                               128, 128)
 
-        old_pix = pbuf.get_pixels()
-        new_pix_list = 128*128*3*["\0"]
+        #   # FIX ME!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        #   # This code is terrible. It probably causes bugs, is dependent
+        #   # on the color depth chosen, and is way too inefficient. However,
+        #   # it works for the moment, so it will be fixed later, if at all
+        #   pbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, 128, 128)
+        #   pbuf.get_from_drawable(self.edit_pixmap,
+        #                          self.edit_pixmap.get_colormap(), 0, 0, 0, 0,
+        #                          128, 128)
+        #
+        #   old_pix = pbuf.get_pixels()
+        #   new_pix_list = 128*128*3*["\0"]
+        #
+        #
+        #
+        #   r_new = chr(nes_palette[new_color][0])
+        #   g_new = chr(nes_palette[new_color][1])
+        #   b_new = chr(nes_palette[new_color][2])
+        #
+        #   r_old = nes_palette[self.current_pal[self.current_col]][0]
+        #   g_old = nes_palette[self.current_pal[self.current_col]][1]
+        #   b_old = nes_palette[self.current_pal[self.current_col]][2]
+        #
+        #
+        #
+        #   for i in range(0, len(old_pix), 3):
+        #       if abs(ord(old_pix[i]) - r_old) < 8 and \
+        #        abs(ord(old_pix[i+1]) - g_old) < 8 and \
+        #        abs(ord(old_pix[i+2]) - b_old) < 8:
+        #           new_pix_list[i] = r_new
+        #           new_pix_list[i+1] = g_new
+        #           new_pix_list[i+2] = b_new
+        #       else:
+        #           new_pix_list[i] = old_pix[i]
+        #           new_pix_list[i+1] = old_pix[i+1]
+        #           new_pix_list[i+2] = old_pix[i+2]
+        #
+        #
+        #   new_pix = ''.join(new_pix_list)
+        #
+        #   gc = self.edit_canvas.get_style().fg_gc[gtk.STATE_NORMAL]
+        #   self.edit_pixmap.draw_rgb_image(gc, 0, 0, 128, 128,
+        #                               gtk.gdk.RGB_DITHER_NONE, new_pix, 128*3)
 
 
-
-        r_new = chr(nes_palette[new_color][0])
-        g_new = chr(nes_palette[new_color][1])
-        b_new = chr(nes_palette[new_color][2])
-
-        r_old = nes_palette[self.current_pal[self.current_col]][0]
-        g_old = nes_palette[self.current_pal[self.current_col]][1]
-        b_old = nes_palette[self.current_pal[self.current_col]][2]
-
-
-
-        for i in range(0, len(old_pix), 3):
-            if abs(ord(old_pix[i]) - r_old) < 8 and \
-             abs(ord(old_pix[i+1]) - g_old) < 8 and \
-             abs(ord(old_pix[i+2]) - b_old) < 8:
-                new_pix_list[i] = r_new
-                new_pix_list[i+1] = g_new
-                new_pix_list[i+2] = b_new
-            else:
-                new_pix_list[i] = old_pix[i]
-                new_pix_list[i+1] = old_pix[i+1]
-                new_pix_list[i+2] = old_pix[i+2]
-
-
-        new_pix = ''.join(new_pix_list)
-
-        gc = self.edit_canvas.get_style().fg_gc[gtk.STATE_NORMAL]
-        self.edit_pixmap.draw_rgb_image(gc, 0, 0, 128, 128,
-                                    gtk.gdk.RGB_DITHER_NONE, new_pix, 128*3)
-
-
-        gc = self.edit_colors.window.new_gc()
-
-        color = self.edit_colors.get_colormap().alloc_color(
-                    256 * nes_palette[new_color][0],
-                    256 * nes_palette[new_color][1],
-                    256 * nes_palette[new_color][2])
-
-        gc.foreground = color
-        self.colors_pixmap.draw_rectangle(gc, True, self.current_col * 32, 0,
-                                                    32, 32)
 
         # Current palette info updated when old info no longer needed
         self.current_pal[self.current_col] = new_color
 
         # Redraw the colors bar to show updated palette selection
-        self.edit_colors.queue_draw_area(0, 0, 128, 32)
-        self.edit_canvas.queue_draw_area(0, 0, 128, 128)
+
+        # gc = self.edit_colors.window.new_gc()
+        #
+        # color = self.edit_colors.get_colormap().alloc_color(
+        #             256 * nes_palette[new_color][0],
+        #             256 * nes_palette[new_color][1],
+        #             256 * nes_palette[new_color][2])
+        #
+        # gc.foreground = color
+        # self.colors_pixmap.draw_rectangle(gc, True, self.current_col * 32, 0,
+        #                                             32, 32)
+        # self.edit_colors.queue_draw_area(0, 0, 128, 32)
+        # self.edit_canvas.queue_draw_area(0, 0, 128, 128)
+        self.colors_configure()
+
+        # Redraw the edit window with updated palette
+        self.update_tile_edit()
 
 
 
@@ -866,6 +880,7 @@ class NesTileEdit:
         tile_x = col*TILESCALE+tile_col*TILEOFFSET
         tile_y = row*TILESCALE+tile_row*TILEOFFSET
         self.tileset_pixmap.create_rectangle(tile_x, tile_y, tile_x+TILESCALE, tile_y+TILESCALE, fill=color, outline=color)
+        self.tile_data[self.current_tile_num][col][row]=self.current_col
 
         # update layer pixmap
         LAYER_SCALE=2
@@ -955,64 +970,69 @@ class NesTileEdit:
 
 
     def update_tile_edit(self):
-        self.edit_win.set_title('Tile #' + str(self.current_tile_num))
+        self.edit_win.wm_title('Tile #' + str(self.current_tile_num))
+        EDITSCALE=16
+        for x in range(8):
+            for y in range(8):
+                color = get_color_string(nes_palette[self.current_pal[self.tile_data[self.current_tile_num][x][y]]])
+                self.edit_pixmap.create_rectangle( x*EDITSCALE,y*EDITSCALE,(x+1)*EDITSCALE,(y+1)*EDITSCALE, fill=color)
 
-        pbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, 16, 16)
-        pbuf.get_from_drawable(self.tileset_pixmap,
-                    self.main_tileset.get_colormap(),
-                    (self.current_tile_num % 16) * 16,
-                    int(self.current_tile_num / 16) * 16,
-                    0, 0, 16, 16)
-        pbuf_scaled = pbuf.scale_simple(128, 128, gtk.gdk.INTERP_NEAREST)
-
-        old_pix = pbuf_scaled.get_pixels()
-        new_pix_l = 128*128*3*["\0"]
-
-        r = []
-        g = []
-        b = []
-        for i in range(4):
-            r.append(chr(nes_palette[self.current_pal[i]][0]))
-            g.append(chr(nes_palette[self.current_pal[i]][1]))
-            b.append(chr(nes_palette[self.current_pal[i]][2]))
-
-        # Convert black and white to current palette
-
-        for i in range(0, len(old_pix), 3):
-            if abs(ord(old_pix[i]) - 0) < 8 and \
-             abs(ord(old_pix[i+1]) - 0) < 8 and \
-             abs(ord(old_pix[i+1]) - 0) < 8:
-                new_pix_l[i] = r[0]
-                new_pix_l[i+1] = g[0]
-                new_pix_l[i+2] = b[0]
-
-            elif abs(ord(old_pix[i]) - 85) < 8 and \
-             abs(ord(old_pix[i+1]) - 85) < 8 and \
-             abs(ord(old_pix[i+1]) - 85) < 8:
-                new_pix_l[i] = r[1]
-                new_pix_l[i+1] = g[1]
-                new_pix_l[i+2] = b[1]
-
-            elif abs(ord(old_pix[i]) - 170) < 8 and \
-             abs(ord(old_pix[i+1]) - 170) < 8 and \
-             abs(ord(old_pix[i+1]) - 170) < 8:
-                new_pix_l[i] = r[2]
-                new_pix_l[i+1] = g[2]
-                new_pix_l[i+2] = b[2]
-
-            else:
-                new_pix_l[i] = r[3]
-                new_pix_l[i+1] = g[3]
-                new_pix_l[i+2] = b[3]
-
-
-        new_pix = ''.join(new_pix_l)
-
-        gc = self.edit_canvas.get_style().fg_gc[gtk.STATE_NORMAL]
-        self.edit_pixmap.draw_rgb_image(gc, 0, 0, 128, 128,
-                                    gtk.gdk.RGB_DITHER_NONE, new_pix, 128*3)
-
-        self.edit_canvas.queue_draw_area(0, 0, 128, 128)
+        #  pbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, 16, 16)
+        #  pbuf.get_from_drawable(self.tileset_pixmap,
+        #              self.main_tileset.get_colormap(),
+        #              (self.current_tile_num % 16) * 16,
+        #              int(self.current_tile_num / 16) * 16,
+        #              0, 0, 16, 16)
+        #  pbuf_scaled = pbuf.scale_simple(128, 128, gtk.gdk.INTERP_NEAREST)
+        #
+        #  old_pix = pbuf_scaled.get_pixels()
+        #  new_pix_l = 128*128*3*["\0"]
+        #
+        #  r = []
+        #  g = []
+        #  b = []
+        #  for i in range(4):
+        #      r.append(chr(nes_palette[self.current_pal[i]][0]))
+        #      g.append(chr(nes_palette[self.current_pal[i]][1]))
+        #      b.append(chr(nes_palette[self.current_pal[i]][2]))
+        #
+        #  # Convert black and white to current palette
+        #
+        #  for i in range(0, len(old_pix), 3):
+        #      if abs(ord(old_pix[i]) - 0) < 8 and \
+        #       abs(ord(old_pix[i+1]) - 0) < 8 and \
+        #       abs(ord(old_pix[i+1]) - 0) < 8:
+        #          new_pix_l[i] = r[0]
+        #          new_pix_l[i+1] = g[0]
+        #          new_pix_l[i+2] = b[0]
+        #
+        #      elif abs(ord(old_pix[i]) - 85) < 8 and \
+        #       abs(ord(old_pix[i+1]) - 85) < 8 and \
+        #       abs(ord(old_pix[i+1]) - 85) < 8:
+        #          new_pix_l[i] = r[1]
+        #          new_pix_l[i+1] = g[1]
+        #          new_pix_l[i+2] = b[1]
+        #
+        #      elif abs(ord(old_pix[i]) - 170) < 8 and \
+        #       abs(ord(old_pix[i+1]) - 170) < 8 and \
+        #       abs(ord(old_pix[i+1]) - 170) < 8:
+        #          new_pix_l[i] = r[2]
+        #          new_pix_l[i+1] = g[2]
+        #          new_pix_l[i+2] = b[2]
+        #
+        #      else:
+        #          new_pix_l[i] = r[3]
+        #          new_pix_l[i+1] = g[3]
+        #          new_pix_l[i+2] = b[3]
+        #
+        #
+        #  new_pix = ''.join(new_pix_l)
+        #
+        #  gc = self.edit_canvas.get_style().fg_gc[gtk.STATE_NORMAL]
+        #  self.edit_pixmap.draw_rgb_image(gc, 0, 0, 128, 128,
+        #                              gtk.gdk.RGB_DITHER_NONE, new_pix, 128*3)
+        #
+        #  self.edit_canvas.queue_draw_area(0, 0, 128, 128)
 
 
     def do_save(self, filename):
