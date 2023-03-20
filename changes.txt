@@ -1,13 +1,14 @@
+version 0.3.0: 2023.03.XX - Ported to python3 and tkinter
 version 0.2.0: 2006.04.15 - "New" option in menu now does something
                           - added "Config" option in "Edit" menu to let the
                             user resize the current ROM
 version 0.1.4: 2006.04.14 - added prompts to prompt the user when overwriting
-                            a file and to ask to save before quitting or 
+                            a file and to ask to save before quitting or
                             opening a new file
-version 0.1.3: 2006.04.13 - fixed a bug in the tile layer (tile_at_xy was 
+version 0.1.3: 2006.04.13 - fixed a bug in the tile layer (tile_at_xy was
                             initialized in a way that caused problems, not
                             sure why, though)
-version 0.1.3: 2006.04.12 - allow loading of full CHR-ROM from iNES format 
+version 0.1.3: 2006.04.12 - allow loading of full CHR-ROM from iNES format
                             files
 version 0.1.2: 2006.04.08 - fixed a bug in the tile layer causing tiles that
                             were written over to still be updated on the tile
