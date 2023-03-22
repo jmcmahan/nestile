@@ -857,7 +857,7 @@ class NesTileEdit:
 
     def draw_tile_pixel( self, x, y, x_len, y_len):
 
-        # Figure out dicrete row and column of pixel
+        # Figure out discrete row and column of pixel
         ROWSPAN = 8
         col = x // x_len
         row = y // y_len
@@ -869,7 +869,7 @@ class NesTileEdit:
         # update edit pixmap
         EDITSCALE=16
         color = get_color_string(nes_palette[self.current_pal[self.current_col]])
-        self.edit_pixmap.create_rectangle( col*EDITSCALE,row*EDITSCALE,(col+1)*EDITSCALE,(row+1)*EDITSCALE, fill=color)
+        self.edit_pixmap.create_rectangle( col*EDITSCALE,row*EDITSCALE,(col+1)*EDITSCALE,(row+1)*EDITSCALE, fill=color, outline=color)
 
         # update tileset pixmap
         TILESCALE=2
@@ -967,15 +967,17 @@ class NesTileEdit:
     #             self.layer_pixmap.create_rectangle( x_int,y_int,x_int+2,y_int+2, fill=color, outline=color)
 
 
+    def draw_tile( self, canvas, xoffset, yoffset, scale, tile_data, pal):
+        for x in range(8):
+            for y in range(8):
+                color = get_color_string(nes_palette[pal[tile_data[x][y]]])
+                canvas.create_rectangle(xoffset+x*scale, yoffset+y*scale, xoffset+(x+1)*scale, yoffset+(y+1)*scale, fill=color, outline=color)
 
 
     def update_tile_edit(self):
         self.edit_win.wm_title('Tile #' + str(self.current_tile_num))
         EDITSCALE=16
-        for x in range(8):
-            for y in range(8):
-                color = get_color_string(nes_palette[self.current_pal[self.tile_data[self.current_tile_num][x][y]]])
-                self.edit_pixmap.create_rectangle( x*EDITSCALE,y*EDITSCALE,(x+1)*EDITSCALE,(y+1)*EDITSCALE, fill=color)
+        self.draw_tile(self.edit_pixmap, 0, 0, EDITSCALE, self.tile_data[self.current_tile_num], self.current_pal)
 
         #  pbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, 16, 16)
         #  pbuf.get_from_drawable(self.tileset_pixmap,
@@ -1216,42 +1218,48 @@ class NesTileEdit:
         # Draw the current tile at the block in location x, y with a x and y
         # size of x_len and y_len
 
-        x_box = int(x) - (int(x) % 16)
-        y_box = int(y) - (int(y) % 16)
+        # x_box = int(x) - (int(x) % 16)
+        # y_box = int(y) - (int(y) % 16)
+        # Figure out discrete row and column of pixel
+        MAX_XBOX = 31
+        MAX_YBOX = 29
+        row = x // x_len
+        col = y // y_len
 
+        # Bounds check row and column
+        row = 0 if row < 0 else MAX_XBOX if row > MAX_XBOX else row
+        col = 0 if col < 0 else MAX_YBOX if col > MAX_YBOX else col
 
-        pbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, 128, 128)
-        pbuf.get_from_drawable(self.edit_pixmap,
-                               self.edit_canvas.get_colormap(), 0, 0, 0, 0,
-                               -1, -1)
-        pbuf_scaled = pbuf.scale_simple(16, 16, gtk.gdk.INTERP_NEAREST)
-        self.layer_pixmap.draw_pixbuf(None, pbuf_scaled, 0, 0, x_box, y_box,
-                                    -1, -1, gtk.gdk.RGB_DITHER_NONE)
+        x_box = row * x_len
+        y_box = col * y_len
 
-        self.layer_grid.queue_draw_area(x_box, y_box, 16, 16)
+        # pbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, 128, 128)
+        # pbuf.get_from_drawable(self.edit_pixmap,
+        #                        self.edit_canvas.get_colormap(), 0, 0, 0, 0,
+        #                        -1, -1)
+        # pbuf_scaled = pbuf.scale_simple(16, 16, gtk.gdk.INTERP_NEAREST)
+        # self.layer_pixmap.draw_pixbuf(None, pbuf_scaled, 0, 0, x_box, y_box,
+        #                             -1, -1, gtk.gdk.RGB_DITHER_NONE)
+        #
+        # self.layer_grid.queue_draw_area(x_box, y_box, 16, 16)
+        cur_pal = self.current_pal[:]
+        self.draw_tile( self.layer_pixmap, x_box, y_box, 2, self.tile_data[self.current_tile_num], cur_pal)
 
-        self.tile_at_xy[x_box / 16][y_box / 16] = self.current_tile_num
+        self.tile_at_xy[row][col] = self.current_tile_num
 
         t_info = self.tile_layout[self.current_tile_num]
 
-        cur_pal = [self.current_pal[i] for i in range(4)]
-
-        if t_info == None:
-            self.tile_layout[self.current_tile_num] = [[x_box, y_box,
-                    cur_pal]]
+        if t_info is None:
+            self.tile_layout[self.current_tile_num] = [[x_box, y_box, cur_pal]]
             return
-
-        not_found = True
 
         for i in range(len(t_info)):
             if t_info[i][0:2] == [x_box, y_box]:
-                self.tile_layout[self.current_tile_num][i] = [x_box, y_box,
-                    cur_pal]
-                not_found = False
+                self.tile_layout[self.current_tile_num][i] = [x_box, y_box, cur_pal]
+                return
 
-        if not_found:
-            self.tile_layout[self.current_tile_num].append([x_box, y_box,
-                    cur_pal])
+        self.tile_layout[self.current_tile_num].append([x_box, y_box, cur_pal])
+
 
 
     def main(self):
