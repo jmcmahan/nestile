@@ -6,8 +6,6 @@
 # Version: 0.3.0
 # See changes.txt for changes and version info
 
-
-import os
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
@@ -93,11 +91,14 @@ class NesTileEdit:
         self.main_win.geometry('280x512')
         self.main_win.resizable(False, False)
         self.main_win.protocol("WM_DELETE_WINDOW", self.destroy)
-        self.tileset_pixmap = tk.Canvas(self.main_win, width=256, height=16 * self.chr_rom_size // 256, bg='#FF0000', scrollregion=(0,0,256,16 * self.chr_rom_size // 128))
+        self.tileset_pixmap = tk.Canvas(self.main_win, bg='#FF0000',
+                                        width=256, height=16 * self.chr_rom_size // 256,
+                                        scrollregion=(0,0,256,16 * self.chr_rom_size // 128))
         self.tileset_pixmap.grid(row=0, column=0)
         self.tileset_pixmap.bind("<Button-1>", self.tileset_click)
 
-        #scroll_x = tk.Scrollbar(self.main_win, orient="horizontal", command=self.tileset_pixmap.xview)
+        #scroll_x = tk.Scrollbar(self.main_win, orient="horizontal",
+        #                        command=self.tileset_pixmap.xview)
         #scroll_x.grid(row=1, column=0, sticky="ew")
 
         scroll_y = tk.Scrollbar(self.main_win, orient="vertical", command=self.tileset_pixmap.yview)
@@ -244,17 +245,18 @@ class NesTileEdit:
 
     def config_tileset(self):
         if self.format != 'raw':
-            messagebox.showwarning("Warning","Only supported in raw mode.\nUse File->New\nto reset raw mode")
+            msg = "Only supported in raw mode.\nUse File->New\nto reset raw mode"
+            messagebox.showwarning("Warning", msg)
             return False
 
-        result = simpledialog.askinteger('Configuration', "CHR ROM Size (Bytes)", initialvalue=self.chr_rom_size)
+        result = simpledialog.askinteger('Configuration', "CHR ROM Size (Bytes)",
+                                         initialvalue=self.chr_rom_size)
         if result is None:
             return False
         try:
             self.chr_rom_size = result
-            if (self.chr_rom_size % 8192):
-                self.chr_rom_size = 8192 + self.chr_rom_size - \
-                                    (self.chr_rom_size % 8192)
+            if self.chr_rom_size % 8192:
+                self.chr_rom_size = 8192 + self.chr_rom_size - (self.chr_rom_size % 8192)
             if not self.chr_rom_size:
                 self.chr_rom_size = 8192
 
@@ -275,8 +277,10 @@ class NesTileEdit:
         # Clear out draw window (done in configure before, but trying to avoid
         # having my graphics drawn over.
         self.tileset_pixmap.config(scrollregion=(0,0,256,16 * self.chr_rom_size // 128))
-        self.tileset_pixmap.create_rectangle( 0, 0, 256, 16 * self.chr_rom_size // 128, fill='#FF0000')
-        self.tileset_pixmap.create_rectangle( 0, 0, 256, 16 * self.chr_rom_size // 256, fill='#000000', outline='#FF00FF')
+        self.tileset_pixmap.create_rectangle(0, 0, 256, 16 * self.chr_rom_size // 128,
+                                             fill='#FF0000')
+        self.tileset_pixmap.create_rectangle(0, 0, 256, 16 * self.chr_rom_size // 256,
+                                             fill='#000000', outline='#FF00FF')
 
         x = 0
         y = 0
@@ -350,7 +354,8 @@ class NesTileEdit:
         self.palette_pick.grid(column=0, row=0, sticky="new")
         self.palette_pick.bind("<Button-1>", self.palette_click)
 
-        self.palette_close = ttk.Button(self.palette_win, text = 'Close', command = self.palette_close_click)
+        self.palette_close = ttk.Button(self.palette_win, text = 'Close',
+                                        command = self.palette_close_click)
         self.palette_close.grid(column=0, row=1, sticky="sew")
 
         self.palette_configure()
@@ -423,7 +428,9 @@ class NesTileEdit:
         # and the number of pixels the drawing area is across, draw a box at
         # the tile with the currently selected color
         color = get_color_string(nes_palette[self.current_pal[tile_color]])
-        self.edit_pixmap.create_rectangle( col*EDITSCALE,row*EDITSCALE,(col+1)*EDITSCALE-1,(row+1)*EDITSCALE-1, fill=color, outline=color)
+        self.edit_pixmap.create_rectangle(col*EDITSCALE, row*EDITSCALE,
+                                          (col+1)*EDITSCALE-1, (row+1)*EDITSCALE-1,
+                                          fill=color, outline=color)
 
         # Update tileset pixmap
         # Same as above, but does it for the tileset window
@@ -431,37 +438,46 @@ class NesTileEdit:
         tile_row, tile_col = divmod(self.current_tile_num, TILESPAN)
         tile_x = col*TILESCALE+tile_col*TILEOFFSET
         tile_y = row*TILESCALE+tile_row*TILEOFFSET
-        self.tileset_pixmap.create_rectangle(tile_x, tile_y, tile_x+TILESCALE-1, tile_y+TILESCALE-1, fill=color, outline=color)
+        self.tileset_pixmap.create_rectangle(tile_x, tile_y,
+                                             tile_x+TILESCALE-1, tile_y+TILESCALE-1,
+                                             fill=color, outline=color)
         self.tile_data[self.current_tile_num][row][col]=tile_color
 
         # Updates all the tiles laid on the tile layer of the same kind
         t_info = self.tile_layout[self.current_tile_num]
-        if t_info is not None:
-            for c in t_info:
-                if self.tile_at_xy[c[0] // LAYER_OFFSET][c[1] // LAYER_OFFSET] == self.current_tile_num:
-                    color =  get_color_string(nes_palette[c[2][tile_color]])
+        if t_info is None:
+            return
+        for c in t_info:
+            if self.tile_at_xy[c[0]][c[1]] == self.current_tile_num:
+                color =  get_color_string(nes_palette[c[2][tile_color]])
 
-                    layer_x = col * LAYER_SCALE + c[0]
-                    layer_y = row * LAYER_SCALE + c[1]
+                lay_x = col * LAYER_SCALE + c[0] * LAYER_OFFSET
+                lay_y = row * LAYER_SCALE + c[1] * LAYER_OFFSET
 
-                    self.layer_pixmap.create_rectangle( layer_x,layer_y,layer_x+LAYER_SCALE-1,layer_y+LAYER_SCALE-1, fill=color, outline=color)
+                self.layer_pixmap.create_rectangle(lay_x, lay_y,
+                                                   lay_x+LAYER_SCALE-1, lay_y+LAYER_SCALE-1,
+                                                   fill=color, outline=color)
 
 
     def draw_tile( self, canvas, xoffset, yoffset, scale, tile_data, pal):
         if tile_data is None:
             color = pal[0]
-            canvas.create_rectangle(xoffset, yoffset, xoffset+8*scale-1, yoffset+8*scale-1, fill=color, outline=color)
+            canvas.create_rectangle(xoffset, yoffset, xoffset+8*scale-1, yoffset+8*scale-1,
+                                    fill=color, outline=color)
             return
         for x in range(8):
             for y in range(8):
                 color = pal[tile_data[y][x]]
-                canvas.create_rectangle(xoffset+x*scale, yoffset+y*scale, xoffset+(x+1)*scale-1, yoffset+(y+1)*scale-1, fill=color, outline=color)
+                canvas.create_rectangle(xoffset+x*scale, yoffset+y*scale,
+                                        xoffset+(x+1)*scale-1, yoffset+(y+1)*scale-1,
+                                        fill=color, outline=color)
 
 
     def update_tile_edit(self):
         self.edit_win.wm_title('Tile #' + str(self.current_tile_num))
         cur_pal = [get_color_string(nes_palette[i]) for i in self.current_pal]
-        self.draw_tile(self.edit_pixmap, 0, 0, EDITSCALE, self.tile_data[self.current_tile_num], cur_pal)
+        self.draw_tile(self.edit_pixmap, 0, 0, EDITSCALE,
+                       self.tile_data[self.current_tile_num], cur_pal)
 
     def bytes_from_tile(self, tile: 'Tile') ->  bytes:
         """
@@ -516,7 +532,8 @@ class NesTileEdit:
         for y in range(8):
             hi_bits = (data[y+8] << 1)
             lo_bits = data[y]
-            tile.append( [ ((hi_bits >> (i)) & 2) + ((lo_bits >> (i)) & 1) for i in range(7,-1,-1) ] )
+            tile.append( [ ((hi_bits >> (i)) & 2) + ((lo_bits >> (i)) & 1)
+                           for i in range(7,-1,-1) ] )
         return tile
 
     def do_open(self, filename):
@@ -544,7 +561,8 @@ class NesTileEdit:
         if len(fdata) < self.chr_rom_size:
             self.chr_rom_size = len(fdata)
 
-        self.tile_data = [ self.tile_from_bytes( fdata[i*BYTES_PER_TILE:(i+1)*BYTES_PER_TILE] ) for i in range(0, len(fdata)//BYTES_PER_TILE) ]
+        self.tile_data = [self.tile_from_bytes( fdata[i*BYTES_PER_TILE:(i+1)*BYTES_PER_TILE] )
+                          for i in range(0, len(fdata)//BYTES_PER_TILE) ]
 
         # redraw the windows
         self.tileset_configure()
@@ -554,34 +572,35 @@ class NesTileEdit:
         # size of x_len and y_len
 
         # Figure out discrete row and column of pixel
-        row = x // x_len
-        col = y // y_len
+        col = x // x_len
+        row = y // y_len
 
         # Bounds check row and column
-        row = 0 if row < 0 else MAX_XBOX if row > MAX_XBOX else row
-        col = 0 if col < 0 else MAX_YBOX if col > MAX_YBOX else col
+        col = 0 if col < 0 else MAX_XBOX if col > MAX_XBOX else col
+        row = 0 if row < 0 else MAX_YBOX if row > MAX_YBOX else row
 
-        x_box = row * x_len
-        y_box = col * y_len
+        x_box = col * x_len
+        y_box = row * y_len
 
         cur_pal = self.current_pal[:]
         draw_pal = [get_color_string(nes_palette[i]) for i in cur_pal]
-        self.draw_tile( self.layer_pixmap, x_box, y_box, 2, self.tile_data[self.current_tile_num], draw_pal)
+        self.draw_tile(self.layer_pixmap, x_box, y_box, TILESCALE,
+                       self.tile_data[self.current_tile_num], draw_pal)
 
-        self.tile_at_xy[row][col] = self.current_tile_num
+        self.tile_at_xy[col][row] = self.current_tile_num
 
         t_info = self.tile_layout[self.current_tile_num]
 
         if t_info is None:
-            self.tile_layout[self.current_tile_num] = [[x_box, y_box, cur_pal]]
+            self.tile_layout[self.current_tile_num] = [[col, row, cur_pal]]
             return
 
         for i in range(len(t_info)):
-            if t_info[i][0:2] == [x_box, y_box]:
-                self.tile_layout[self.current_tile_num][i] = [x_box, y_box, cur_pal]
+            if t_info[i][0:2] == [col, row]:
+                self.tile_layout[self.current_tile_num][i][2] = cur_pal
                 return
 
-        self.tile_layout[self.current_tile_num].append([x_box, y_box, cur_pal])
+        self.tile_layout[self.current_tile_num].append([col, row, cur_pal])
 
 
 
@@ -616,5 +635,3 @@ class NesTileEdit:
 if __name__ == "__main__":
     nes_tile_edit = NesTileEdit()
     nes_tile_edit.main()
-
-
