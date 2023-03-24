@@ -124,7 +124,7 @@ specified will be rounded up to the nearest multiple of 8192 bytes.
 Many of these are mentioned above, but I'll try to collect them all here for
 reference.
 
-- [ ] Drawing past the edge of the window on the Tile Edit window will draw on the
+- [x] Drawing past the edge of the window on the Tile Edit window will draw on the
   adjacent tile
 
 - [ ] Changing a color in the palette to something very close to the a color already
@@ -147,7 +147,7 @@ reference.
 - [ ] There are probably plenty of other bugs. Let me know about them and I may end
   up trying to fix them, if you really want to use the program.
 
-- [ ] Add support for for left click and right click colors
+- [x] Add support for for left click and right click colors
 
 - [ ] Add selection indicators for currently selected tiles and colors
 
