@@ -494,6 +494,7 @@ class NesTileEdit:
                 f.write(self.ines_data + output_string)
             self.modified = False
             self.filename = filename
+        return True
 
     def print_tile_data( self):
         for tile in self.tile_data:
@@ -525,12 +526,12 @@ class NesTileEdit:
 
         if self.filename.split('.')[-1] == 'nes':
             self.format = 'ines'
-            proms = ord(fdata[4])
-            croms = ord(fdata[5])
-            self.ines_data = fdata[0: 16 + 16384 * proms]
-            tmp = fdata[16 + 16384 * proms: 16 + 16384 * proms + 8192 * croms]
-            fdata = tmp
+            proms = fdata[4]
+            croms = fdata[5]
+            prom_size = 16 + 16384 * proms
             self.chr_rom_size = 8192 * croms
+            self.ines_data = fdata[0: prom_size]
+            fdata = fdata[prom_size: prom_size + self.chr_rom_size]
         else:
             self.format = 'raw'
             # if not iNES, make sure data length is a multiple of 8192
