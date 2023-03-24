@@ -81,6 +81,7 @@ class NesTileEdit:
         # Holds iNES PRG and header data when opening iNES ROM's
         self.ines_data = None
 
+        self.tile_data = [None]* (self.chr_rom_size//BYTES_PER_TILE)
 
         # Create widgets
         # Set widget properties
@@ -134,6 +135,9 @@ class NesTileEdit:
         self.layer_pixmap.bind("<Button-1>", self.layer_click)
         self.layer_configure()
 
+        self.palette_win=None
+        self.palette_pick=None
+
         # Setup user interface
 
         # main_ui = """<ui>
@@ -166,16 +170,16 @@ class NesTileEdit:
         self.main_menubar.add_cascade(label="Edit", menu=self.main_edit_menu)
 
 
+
         # Widget display
         self.new_tileset()
 
         self.tileset_pixmap.focus_force()
-        return
 
 
     # Generic callbacks
 
-    def destroy(self, data=None):
+    def destroy(self):
         if not self.check_to_save_tileset():
             return False
         self.main_win.destroy()
@@ -190,13 +194,13 @@ class NesTileEdit:
             if result is None:
                 # Cancel
                 return False
-            elif result:
-                # Yes
-                # if self.filename:
-                # do same as if there's no filename for now
-                if not self.save_tileset():
-                    messagebox.showerror("Error", "Unable to save tile set!")
-                    return False
+            if not result:
+                # No
+                return True
+            # Yes
+            if not self.save_tileset():
+                messagebox.showerror("Error", "Unable to save tile set!")
+                return False
         return True
 
     def new_tileset(self):
@@ -222,7 +226,7 @@ class NesTileEdit:
             return False
 
         filename = filedialog.askopenfilename(filetypes=nes_filetypes)
-        if filename is None or "" == filename or () == filename:
+        if not filename:
             return False
         return self.do_open( filename )
 
@@ -233,8 +237,10 @@ class NesTileEdit:
 
 
     def save_tileset(self):
+        # if self.filename:
+        # do same as if there's no filename for now
         filename = filedialog.asksaveasfilename(filetypes=nes_filetypes)
-        if filename is None or "" == filename or () == filename:
+        if not filename:
             return False
 
         if self.do_save( filename ):
@@ -265,8 +271,11 @@ class NesTileEdit:
             self.current_tile_num = 0
             self.update_tile_edit()
             return True
-        except:
+        except ValueError:
             messagebox.showerror("Error", "Invalid size specified.")
+        except Exception as err:
+            messagebox.showerror("Error", f"Unexpected {err=}, {type(err)=}")
+            raise
         return False
 
 
@@ -318,7 +327,6 @@ class NesTileEdit:
 
     def colors_configure(self):
         for i in range(4):
-            x = (i * 32)
             color = get_color_string( nes_palette[self.current_pal[i]] )
             self.draw_box_i( self.colors_pixmap, i, 32, 32, 4, color)
 
@@ -354,13 +362,13 @@ class NesTileEdit:
         self.palette_pick.grid(column=0, row=0, sticky="new")
         self.palette_pick.bind("<Button-1>", self.palette_click)
 
-        self.palette_close = ttk.Button(self.palette_win, text = 'Close',
+        palette_close = ttk.Button(self.palette_win, text = 'Close',
                                         command = self.palette_close_click)
-        self.palette_close.grid(column=0, row=1, sticky="sew")
+        palette_close.grid(column=0, row=1, sticky="sew")
 
         self.palette_configure()
 
-    def palette_configure(self, event=None):
+    def palette_configure(self):
         # Draws the colors blocks for selecting from the NES palette
         for i in range(64):
             color = get_color_string(nes_palette[i])
@@ -368,14 +376,7 @@ class NesTileEdit:
 
     def palette_click(self, event):
         new_color = self.box_number(event.x, event.y, 16, 16, 16)
-        if new_color == self.current_pal[0] or \
-         new_color == self.current_pal[1] or \
-         new_color == self.current_pal[2] or \
-         new_color == self.current_pal[3]:
-            return
-        else:
-            self.update_pal(new_color)
-
+        self.update_pal(new_color)
 
     def palette_close_click(self):
         self.palette_win.destroy()
@@ -512,13 +513,13 @@ class NesTileEdit:
             self.filename = filename
         return True
 
-    def print_tile_data( self):
-        for tile in self.tile_data:
-            if tile is None:
-                print("None")
-            else:
+    def print_tile_data(self, tile_data: list['Tile']):
+        for tile in tile_data:
+            if isinstance(tile, list):
                 for row in tile:
                     print(row)
+            else:
+                print(tile)
             print("---------------------------------------------------------")
 
     def tile_from_bytes(self, data:bytes) -> 'Tile':
@@ -595,9 +596,9 @@ class NesTileEdit:
             self.tile_layout[self.current_tile_num] = [[col, row, cur_pal]]
             return
 
-        for i in range(len(t_info)):
-            if t_info[i][0:2] == [col, row]:
-                self.tile_layout[self.current_tile_num][i][2] = cur_pal
+        for t_layout in t_info:
+            if t_layout[0:2] == [col, row]:
+                t_layout[2] = cur_pal
                 return
 
         self.tile_layout[self.current_tile_num].append([col, row, cur_pal])
@@ -617,16 +618,16 @@ class NesTileEdit:
 
 
     def unittest(self):
-        a = b"\x41\xC2\x44\x48\x10\x20\x40\x80\x01\x02\x04\x08\x16\x21\x42\x87"
-        print (a)
-        b = self.tile_from_bytes( a )
-        print (b)
-        c = self.bytes_from_tile( b )
-        print (c)
-        print( a == c)
-        d = self.tile_from_bytes( c )
-        print (d)
-        print( b == d)
+        base_bytes = b"\x41\xC2\x44\x48\x10\x20\x40\x80\x01\x02\x04\x08\x16\x21\x42\x87"
+        print (base_bytes)
+        first_tile = self.tile_from_bytes(base_bytes)
+        print (first_tile)
+        gen_bytes = self.bytes_from_tile(first_tile)
+        print (gen_bytes)
+        print(base_bytes == gen_bytes)
+        sec_tile = self.tile_from_bytes(gen_bytes)
+        print (sec_tile)
+        print(first_tile == sec_tile)
 
     def main(self):
         self.main_win.mainloop()
