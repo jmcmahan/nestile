@@ -242,10 +242,10 @@ class NesTileEdit:
         self._build_menu()
 
         # Widget display
-        self.tileset_configure()
-        self.edit_configure()
-        self.colors_configure()
-        self.tlayout_configure()
+        self._tileset_configure()
+        self._edit_configure()
+        self._colors_configure()
+        self._tlayout_configure()
 
     def set_current_tile_num(self, idx: int ):
         self.current_tile_num = idx
@@ -294,10 +294,10 @@ class NesTileEdit:
         self.edit_win.protocol("WM_DELETE_WINDOW", self.destroy)
         self.edit_pixmap.config(width=EDIT_WIDTH, height=EDIT_HEIGHT, bg='#FF0000')
         self.edit_pixmap.grid(column=0, row=0, sticky="new")
-        self.edit_pixmap.bind("<Button-1>", self.edit_leftclick)
-        self.edit_pixmap.bind("<B1-Motion>", self.edit_leftclick)
-        self.edit_pixmap.bind("<Button-3>", self.edit_rightclick)
-        self.edit_pixmap.bind("<B3-Motion>", self.edit_rightclick)
+        self.edit_pixmap.bind("<Button-1>", self._edit_leftclick)
+        self.edit_pixmap.bind("<B1-Motion>", self._edit_leftclick)
+        self.edit_pixmap.bind("<Button-3>", self._edit_rightclick)
+        self.edit_pixmap.bind("<B3-Motion>", self._edit_rightclick)
 
         self.colors_pixmap.config(width=EDIT_WIDTH, height=COLORS_HEIGHT, bg='#FF0000')
         self.colors_pixmap.grid(column=0, row=1, sticky="sew")
@@ -360,14 +360,14 @@ class NesTileEdit:
     # Generic callbacks
 
     def destroy(self):
-        if not self.check_to_save_tileset():
+        if not self._check_to_save_tileset():
             return False
         self.root.destroy()
         return True
 
     # Menubar callbacks
 
-    def check_to_save_tileset(self ):
+    def _check_to_save_tileset(self ):
         if self.modified:
             result = messagebox.askyesnocancel("Question", "Save current file?")
 
@@ -384,20 +384,20 @@ class NesTileEdit:
         return True
 
     def new_tileset(self):
-        if not self.check_to_save_tileset():
+        if not self._check_to_save_tileset():
             return False
 
         self._reset_data()
 
-        self.tileset_configure()
-        self.edit_configure()
-        self.colors_configure()
-        self.tlayout_configure()
+        self._tileset_configure()
+        self._edit_configure()
+        self._colors_configure()
+        self._tlayout_configure()
         return True
 
 
     def open_tileset(self):
-        if not self.check_to_save_tileset():
+        if not self._check_to_save_tileset():
             return False
 
         filename = filedialog.askopenfilename(filetypes=nes_filetypes)
@@ -413,7 +413,7 @@ class NesTileEdit:
         return self.new_tileset()
 
 
-    def save_tileset_common(self, filename):
+    def _save_tileset_common(self, filename):
         if self.do_save( filename ):
             return True
 
@@ -425,14 +425,14 @@ class NesTileEdit:
         if not filename:
             return False
 
-        return self.save_tileset_common(filename)
+        return self._save_tileset_common(filename)
 
     def save_tileset(self):
         if not self.filename:
             # do save as if there's no filename for now
             return self.save_as_tileset()
 
-        return self.save_tileset_common(self.filename)
+        return self._save_tileset_common(self.filename)
 
     def config_tileset(self):
         """
@@ -460,14 +460,14 @@ class NesTileEdit:
                 self.tile_data = self.tile_data[:new_size]
                 if self.current_tile_num >= new_size:
                     self.set_current_tile_num(0)
-                    self.edit_configure()
+                    self._edit_configure()
             else:
                 for _ in range(len(self.tile_data),new_size):
                     self.tile_layout.append(None)
                     self.tile_data.append(None)
 
             # update display
-            self.tileset_configure()
+            self._tileset_configure()
             return True
         except ValueError:
             messagebox.showerror("Error", "Invalid size specified.")
@@ -480,7 +480,7 @@ class NesTileEdit:
 
     # Tile set callbacks
 
-    def tileset_configure(self):
+    def _tileset_configure(self):
         # Clear out draw window (done in configure before, but trying to avoid
         # having my graphics drawn over.
         self.tileset_pixmap.config(scrollregion=(0,0,TSET_WIDTH,
@@ -496,7 +496,7 @@ class NesTileEdit:
                 self.tileset_pixmap.create_rectangle(x, y, x+TSET_OFFSET-1, y+TSET_OFFSET-1,
                                              fill='', outline='#00FFFF')
             x += TSET_OFFSET
-            if x >= TSET_SPAN*TSET_OFFSET:
+            if x >= TSET_WIDTH:
                 y += TSET_OFFSET
                 x = 0
 
@@ -522,7 +522,7 @@ class NesTileEdit:
             self.set_current_tile_num(i)
 
             # Update edit box with new selected tile
-            self.edit_configure()
+            self._edit_configure()
 
 
     def tileset_mousewheel(self, event):
@@ -533,25 +533,25 @@ class NesTileEdit:
 
     # Tile edit area callbacks
 
-    def edit_configure(self):
+    def _edit_configure(self):
         self.edit_win.wm_title('Tile #' + str(self.current_tile_num))
         self.edit_pixmap.delete('all')
         cur_pal = [nes_palette[i] for i in self.current_pal]
         draw_tile(self.edit_pixmap, 0, 0, EDITSCALE,
                        self.tile_data[self.current_tile_num], cur_pal)
 
-    def edit_leftclick(self, event):
+    def _edit_leftclick(self, event):
         self.modified = True
         self.draw_tile_pixel(event.x, event.y, self.current_col)
 
-    def edit_rightclick(self, event):
+    def _edit_rightclick(self, event):
         self.modified = True
         self.draw_tile_pixel(event.x, event.y, 0)
 
 
     # Tile edit color selection callbacks
 
-    def colors_configure(self):
+    def _colors_configure(self):
         self.colors_pixmap.delete('all')
         #TKOTZ switch to enumerate
         for i in range(4):
@@ -575,7 +575,7 @@ class NesTileEdit:
 
     # Tile layer area callbacks
 
-    def tlayout_configure(self):
+    def _tlayout_configure(self):
         self.tlayout_pixmap.delete('all')
         #TKOTZ need to draw all the tiles in the layer
         self.tlayout_pixmap.create_rectangle( 0, 0, 512, 480, fill="#000000")
@@ -618,10 +618,10 @@ class NesTileEdit:
         self.current_pal[col] = new_color
 
         # Redraw the colors bar to show updated palette selection
-        self.colors_configure()
+        self._colors_configure()
 
         # Redraw the edit window with updated palette
-        self.edit_configure()
+        self._edit_configure()
 
     # File I/O functions
 
@@ -674,7 +674,7 @@ class NesTileEdit:
                           for i in range(0, len(fdata)//BYTES_PER_TILE) ]
 
         # redraw the windows
-        self.tileset_configure()
+        self._tileset_configure()
 
     # Other cross domain functions
 
