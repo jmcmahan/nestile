@@ -165,11 +165,11 @@ reference.
 
 - [ ] Fix `chr_rom_size` logic
 
-- [ ] Make `nes_palette` strings
+- [x] Make `nes_palette` strings
 
-- [ ] Add save/saveAs filename support
+- [x] Add save/saveAs filename support
 
-- [ ] Add support for specifying a file to open on the cmdline
+- [x] Add support for specifying a file to open on the cmdline
 
 6. Contact / Credit
 

@@ -6,11 +6,13 @@
 # Version: 0.3.0
 # See changes.txt for changes and version info
 
-import tkinter as tk
-from tkinter import ttk
-from tkinter import messagebox
 from tkinter import filedialog
+from tkinter import messagebox
 from tkinter import simpledialog
+from tkinter import ttk
+import os
+import sys
+import tkinter as tk
 
 EDITSCALE=16
 LAYER_SCALE=2
@@ -24,25 +26,25 @@ TILEOFFSET=ROWSPAN*TILESCALE
 BYTES_PER_TILE=16
 
 nes_palette = (
-   (0x80,0x80,0x80), (0x00,0x00,0xbb), (0x37,0x00,0xbf), (0x84,0x00,0xa6),
-   (0xbb,0x00,0x6a), (0xb7,0x00,0x1e), (0xb3,0x00,0x00), (0x91,0x26,0x00),
-   (0x7b,0x2b,0x00), (0x00,0x3e,0x00), (0x00,0x48,0x0d), (0x00,0x3c,0x22),
-   (0x00,0x2f,0x66), (0x00,0x00,0x00), (0x05,0x05,0x05), (0x05,0x05,0x05),
+   "#808080", "#0000bb", "#3700bf", "#8400a6",
+   "#bb006a", "#b7001e", "#b30000", "#912600",
+   "#7b2b00", "#003e00", "#00480d", "#003c22",
+   "#002f66", "#000000", "#050505", "#050505",
 
-   (0xc8,0xc8,0xc8), (0x00,0x59,0xff), (0x44,0x3c,0xff), (0xb7,0x33,0xcc),
-   (0xff,0x33,0xaa), (0xff,0x37,0x5e), (0xff,0x37,0x1a), (0xd5,0x4b,0x00),
-   (0xc4,0x62,0x00), (0x3c,0x7b,0x00), (0x1e,0x84,0x15), (0x00,0x95,0x66),
-   (0x00,0x84,0xc4), (0x11,0x11,0x11), (0x09,0x09,0x09), (0x09,0x09,0x09),
+   "#c8c8c8", "#0059ff", "#443cff", "#b733cc",
+   "#ff33aa", "#ff375e", "#ff371a", "#d54b00",
+   "#c46200", "#3c7b00", "#1e8415", "#009566",
+   "#0084c4", "#111111", "#090909", "#090909",
 
-   (0xff,0xff,0xff), (0x00,0x95,0xff), (0x6f,0x84,0xff), (0xd5,0x6f,0xff),
-   (0xff,0x77,0xcc), (0xff,0x6f,0x99), (0xff,0x7b,0x59), (0xff,0x91,0x5f),
-   (0xff,0xa2,0x33), (0xa6,0xbf,0x00), (0x51,0xd9,0x6a), (0x4d,0xd5,0xae),
-   (0x00,0xd9,0xff), (0x66,0x66,0x66), (0x0d,0x0d,0x0d), (0x0d,0x0d,0x0d),
+   "#ffffff", "#0095ff", "#6f84ff", "#d56fff",
+   "#ff77cc", "#ff6f99", "#ff7b59", "#ff915f",
+   "#ffa233", "#a6bf00", "#51d96a", "#4dd5ae",
+   "#00d9ff", "#666666", "#0d0d0d", "#0d0d0d",
 
-   (0xff,0xff,0xff), (0x84,0xbf,0xff), (0xbb,0xbb,0xff), (0xd0,0xbb,0xff),
-   (0xff,0xbf,0xea), (0xff,0xbf,0xcc), (0xff,0xc4,0xb7), (0xff,0xcc,0xae),
-   (0xff,0xd9,0xa2), (0xcc,0xe1,0x99), (0xae,0xee,0xb7), (0xaa,0xf7,0xee),
-   (0xb3,0xee,0xff), (0xdd,0xdd,0xdd), (0x11,0x11,0x11), (0x11,0x11,0x11))
+   "#ffffff", "#84bfff", "#bbbbff", "#d0bbff",
+   "#ffbfea", "#ffbfcc", "#ffc4b7", "#ffccae",
+   "#ffd9a2", "#cce199", "#aeeeb7", "#aaf7ee",
+   "#b3eeff", "#dddddd", "#111111", "#111111")
 
 
 tileset_palette = ( "#000000", "#00FFFF", "#FF00FF", "#FFFF00")
@@ -52,9 +54,6 @@ nes_filetypes=(('Raw files', '.*'), ('NES files', '.nes'))
 def callback(event):
     # print "clicked at", event.x, event.y
     print ("Event"+str( event ))
-
-def get_color_string( color_tuple ):
-    return "#{:02x}{:02x}{:02x}".format(color_tuple[0], color_tuple[1], color_tuple[2])
 
 class NesTileEdit:
     """Class for the NES Tile Editor program
@@ -87,7 +86,8 @@ class NesTileEdit:
         # Set widget properties
         # Widget arrangement and display
         # Setup events / signals
-        self.main_win = tk.Tk()
+        self.root = tk.Tk()
+        self.main_win = self.root
         self.main_win.wm_title('Tile Set')
         self.main_win.geometry('280x512')
         self.main_win.resizable(False, False)
@@ -106,7 +106,7 @@ class NesTileEdit:
 
         self.tileset_pixmap.configure(yscrollcommand=scroll_y.set) #, xscrollcommand=scroll_x.set)
 
-        self.edit_win = tk.Toplevel(self.main_win)
+        self.edit_win = tk.Toplevel(self.root)
         self.edit_win.wm_title('Tile #' + str(self.current_tile_num))
         self.edit_win.geometry('128x192')
         self.edit_win.resizable(False, False)
@@ -124,7 +124,7 @@ class NesTileEdit:
         self.colors_pixmap.bind("<Button-3>", self.colors_rightclick)
         self.colors_configure()
 
-        self.layer_win = tk.Toplevel(self.main_win)
+        self.layer_win = tk.Toplevel(self.root)
         self.layer_win.wm_title('Tile Layer')
         self.layer_win.geometry('512x480')
         self.layer_win.resizable(False, False)
@@ -140,12 +140,13 @@ class NesTileEdit:
         #               <menubar name="MenuBar">
         #                <menu action="File">
         #                 <menuitem action="New"/>
-        #                 <menuitem action="Open"/>
+        #                 <menuitem action="Open..."/>
         #                 <menuitem action="Save"/>
+        #                 <menuitem action="Save As..."/>
         #                 <menuitem action="Quit"/>
         #                </menu>
         #                <menu action="Edit">
-        #                 <menuitem action="Config"/>
+        #                 <menuitem action="Config..."/>
         #                </menu>
         #               </menubar>
         #              </ui>
@@ -154,16 +155,28 @@ class NesTileEdit:
         self.main_win.config(menu = self.main_menubar)
 
         self.main_file_menu = tk.Menu(self.main_menubar)
-        self.main_file_menu.add_command(label="New", command=self.new_tileset)
-        self.main_file_menu.add_command(label="Open", command=self.open_tileset)
-        self.main_file_menu.add_command(label="Save", command=self.save_tileset)
-        self.main_file_menu.add_command(label="Quit", command=self.destroy)
-        self.main_menubar.add_cascade(label="File", menu=self.main_file_menu)
+        self.main_file_menu.add_command(label="New", command=self.new_tileset,
+                                        underline=0, accelerator="Ctrl+N")
+        self.root.bind_all("<Control-n>", lambda x: self.new_tileset())
+        self.main_file_menu.add_command(label="Open...", command=self.open_tileset,
+                                        underline=0, accelerator="Ctrl+O")
+        self.root.bind_all("<Control-o>", lambda x: self.open_tileset())
+        self.main_file_menu.add_command(label="Save", command=self.save_tileset,
+                                        underline=0, accelerator="Ctrl+S")
+        self.root.bind_all("<Control-s>", lambda x: self.save_tileset())
+        self.main_file_menu.add_command(label="Save As...", command=self.save_as_tileset,
+                                        underline=5, accelerator="Ctrl+Shift+S")
+        self.root.bind_all("<Control-S>", lambda x: self.save_as_tileset())
+        self.main_file_menu.add_command(label="Quit", command=self.destroy,
+                                        underline=0, accelerator="Ctrl+Q")
+        self.root.bind_all("<Control-q>", lambda x: self.destroy())
+        self.main_menubar.add_cascade(label="File", menu=self.main_file_menu, underline=0)
 
         self.main_edit_menu = tk.Menu(self.main_menubar)
-        self.main_edit_menu.add_command(label="Config", command=self.config_tileset)
+        self.main_edit_menu.add_command(label="Config...", command=self.config_tileset, underline=0)
 
-        self.main_menubar.add_cascade(label="Edit", menu=self.main_edit_menu)
+        self.main_menubar.add_cascade(label="Edit", menu=self.main_edit_menu, underline=0)
+
 
 
 
@@ -194,7 +207,7 @@ class NesTileEdit:
                 # No
                 return True
             # Yes
-            if not self.save_tileset():
+            if not self.save_as_tileset():
                 messagebox.showerror("Error", "Unable to save tile set!")
                 return False
         return True
@@ -232,18 +245,26 @@ class NesTileEdit:
         return self.new_tileset()
 
 
-    def save_tileset(self):
-        # if self.filename:
-        # do same as if there's no filename for now
-        filename = filedialog.asksaveasfilename(filetypes=nes_filetypes)
-        if not filename:
-            return False
-
+    def save_tileset_common(self, filename):
         if self.do_save( filename ):
             return True
 
         messagebox.showerror("Error", "Unable to save to `{}`".format(filename))
         return False
+
+    def save_as_tileset(self):
+        filename = filedialog.asksaveasfilename(filetypes=nes_filetypes, initialfile=self.filename )
+        if not filename:
+            return False
+
+        return self.save_tileset_common(filename)
+
+    def save_tileset(self):
+        if not self.filename:
+            # do save as if there's no filename for now
+            return self.save_as_tileset()
+
+        return self.save_tileset_common(self.filename)
 
     def config_tileset(self):
         if self.format != 'raw':
@@ -344,17 +365,17 @@ class NesTileEdit:
 
     def colors_configure(self):
         for i in range(4):
-            outline_color = color = get_color_string( nes_palette[self.current_pal[i]] )
+            outline_color = color = nes_palette[self.current_pal[i]]
             if i == self.current_col:
                 outline_color = "#00FFFF"
             self.draw_box_i( self.colors_pixmap, i, 32, 32, 4, color, outline_color)
 
     def colors_leftclick(self, event):
         i = self.current_col
-        color = get_color_string( nes_palette[self.current_pal[i]] )
+        color = nes_palette[self.current_pal[i]]
         self.draw_box_i( self.colors_pixmap, i, 32, 32, 4, color)
         self.current_col = i = self.box_number(event.x, event.y, 32, 32, 4)
-        color = get_color_string( nes_palette[self.current_pal[i]] )
+        color = nes_palette[self.current_pal[i]]
         self.draw_box_i( self.colors_pixmap, i, 32, 32, 4, color, "#00FFFF")
 
     def colors_rightclick(self, event):
@@ -376,7 +397,7 @@ class NesTileEdit:
 
     def create_palette_win(self, col):
         # Create window for selecting color palette
-        palette_win = tk.Toplevel(self.main_win)
+        palette_win = tk.Toplevel(self.root)
         palette_win.wm_title('Color Chooser #' + str(col))
         palette_win.resizable(False, False)
 
@@ -390,8 +411,7 @@ class NesTileEdit:
         palette_close.grid(column=0, row=1, sticky="sew")
 
         # Draws the colors blocks for selecting from the NES palette
-        for i in range(len(nes_palette)):
-            color = get_color_string(nes_palette[i])
+        for i, color in enumerate(nes_palette):
             self.draw_box_i(palette_pick, i, 16, 16, 16, color)
 
     def palette_click(self, event, col):
@@ -443,7 +463,7 @@ class NesTileEdit:
         # Given the col,row coordinates, and EDITSCALE of the pixels in the tile,
         # and the number of pixels the drawing area is across, draw a box at
         # the tile with the currently selected color
-        color = get_color_string(nes_palette[self.current_pal[tile_color]])
+        color = nes_palette[self.current_pal[tile_color]]
         self.edit_pixmap.create_rectangle(col*EDITSCALE, row*EDITSCALE,
                                           (col+1)*EDITSCALE-1, (row+1)*EDITSCALE-1,
                                           fill=color, outline=color)
@@ -465,7 +485,7 @@ class NesTileEdit:
             return
         for t_layout in t_info:
             if self.tile_at_xy[t_layout[0]][t_layout[1]] == self.current_tile_num:
-                color =  get_color_string(nes_palette[t_layout[2][tile_color]])
+                color =  nes_palette[t_layout[2][tile_color]]
 
                 lay_x = col * LAYER_SCALE + t_layout[0] * LAYER_OFFSET
                 lay_y = row * LAYER_SCALE + t_layout[1] * LAYER_OFFSET
@@ -491,7 +511,7 @@ class NesTileEdit:
 
     def update_tile_edit(self):
         self.edit_win.wm_title('Tile #' + str(self.current_tile_num))
-        cur_pal = [get_color_string(nes_palette[i]) for i in self.current_pal]
+        cur_pal = [nes_palette[i] for i in self.current_pal]
         self.draw_tile(self.edit_pixmap, 0, 0, EDITSCALE,
                        self.tile_data[self.current_tile_num], cur_pal)
 
@@ -599,7 +619,7 @@ class NesTileEdit:
         y_box = row * y_len
 
         cur_pal = self.current_pal[:]
-        draw_pal = [get_color_string(nes_palette[i]) for i in cur_pal]
+        draw_pal = [nes_palette[i] for i in cur_pal]
         self.draw_tile(self.layer_pixmap, x_box, y_box, TILESCALE,
                        self.tile_data[self.current_tile_num], draw_pal)
 
@@ -650,4 +670,16 @@ class NesTileEdit:
 # Main program loop
 if __name__ == "__main__":
     nes_tile_edit = NesTileEdit()
+    if len(sys.argv) > 1:
+        if '--test' in sys.argv:
+            nes_tile_edit.unittest()
+            sys.exit(0)
+        elif len(sys.argv) > 2 or '-h' in sys.argv:
+            print("Usage: {} [FILE]".format(sys.argv[0]))
+            print("\tFILE - sets name of the FILE to open.")
+            sys.exit(0)
+        elif os.path.isfile(sys.argv[1]):
+            nes_tile_edit.do_open( sys.argv[1] )
+        else:
+            nes_tile_edit.filename=sys.argv[1]
     nes_tile_edit.main()
