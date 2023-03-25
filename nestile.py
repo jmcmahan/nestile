@@ -98,11 +98,11 @@ class NesTileEdit:
         self.tileset_pixmap.grid(row=0, column=0)
         self.tileset_pixmap.bind("<Button-1>", self.tileset_click)
 
-        #scroll_x = tk.Scrollbar(self.main_win, orient="horizontal",
+        #scroll_x = ttk.Scrollbar(self.main_win, orient="horizontal",
         #                        command=self.tileset_pixmap.xview)
         #scroll_x.grid(row=1, column=0, sticky="ew")
 
-        scroll_y = tk.Scrollbar(self.main_win, orient="vertical", command=self.tileset_pixmap.yview)
+        scroll_y = ttk.Scrollbar(self.main_win, orient="vertical", command=self.tileset_pixmap.yview)
         scroll_y.grid(row=0, column=1, sticky="ns")
 
         self.tileset_pixmap.configure(yscrollcommand=scroll_y.set) #, xscrollcommand=scroll_x.set)
@@ -303,7 +303,12 @@ class NesTileEdit:
 
 
     def tileset_click(self, event):
-        self.current_tile_num = self.box_number(event.x, event.y, 16, 16, 16)
+        x = self.tileset_pixmap.canvasx(event.x)
+        y = self.tileset_pixmap.canvasy(event.y)
+        self.current_tile_num = self.box_number(int(x), int(y), 16, 16, 16)
+        if self.current_tile_num >= len(self.tile_data):
+            messagebox.showerror("Error", "Tile is beyond allocated ROM size.")
+            self.current_tile_num = 0
         if self.tile_data[self.current_tile_num] is None:
             self.tile_data[self.current_tile_num] = [[0]*ROWSPAN for x in range(ROWSPAN)]
 
@@ -340,8 +345,6 @@ class NesTileEdit:
     # Tile layer area callbacks
 
     def layer_configure(self):
-        # self.layer_pixmap.draw_rectangle(self.layer_grid.get_style().black_gc,
-        #                                 True, 0, 0, 512, 480)
         self.layer_pixmap.create_rectangle( 0, 0, 512, 480, fill="#000000")
         return True
 
@@ -448,12 +451,12 @@ class NesTileEdit:
         t_info = self.tile_layout[self.current_tile_num]
         if t_info is None:
             return
-        for c in t_info:
-            if self.tile_at_xy[c[0]][c[1]] == self.current_tile_num:
-                color =  get_color_string(nes_palette[c[2][tile_color]])
+        for t_layout in t_info:
+            if self.tile_at_xy[t_layout[0]][t_layout[1]] == self.current_tile_num:
+                color =  get_color_string(nes_palette[t_layout[2][tile_color]])
 
-                lay_x = col * LAYER_SCALE + c[0] * LAYER_OFFSET
-                lay_y = row * LAYER_SCALE + c[1] * LAYER_OFFSET
+                lay_x = col * LAYER_SCALE + t_layout[0] * LAYER_OFFSET
+                lay_y = row * LAYER_SCALE + t_layout[1] * LAYER_OFFSET
 
                 self.layer_pixmap.create_rectangle(lay_x, lay_y,
                                                    lay_x+LAYER_SCALE-1, lay_y+LAYER_SCALE-1,
@@ -504,11 +507,11 @@ class NesTileEdit:
         # but just treat everything like a raw binary file for now
         output_string = b"".join([self.bytes_from_tile(tile) for tile in self.tile_data ])
 
-        with open(filename, 'wb') as f:
+        with open(filename, 'wb') as fout:
             if self.format == 'raw':
-                f.write(output_string)
+                fout.write(output_string)
             elif self.format == 'ines':
-                f.write(self.ines_data + output_string)
+                fout.write(self.ines_data + output_string)
             self.modified = False
             self.filename = filename
         return True
@@ -539,8 +542,8 @@ class NesTileEdit:
 
     def do_open(self, filename):
         self.filename = filename
-        with open(self.filename, 'rb') as f:
-            fdata = f.read()
+        with open(self.filename, 'rb') as fin:
+            fdata = fin.read()
 
         if self.filename.split('.')[-1] == 'nes':
             self.format = 'ines'
