@@ -149,15 +149,15 @@ reference.
 
 - [x] Add support for for left click and right click colors
 
-- [ ] Add selection indicators for currently selected tiles and colors
+- [x] Add selection indicators for currently selected tiles and colors
 
 - [ ] Split the view into a class separate from the tile data model
 
 - [ ] Update README with new requirements and new screen shot
 
-- [ ] Add scroll wheel support
+- [x] Add scroll wheel support
 
-- [ ] Make palette window modal or tied to which color is right clicked
+- [x] Make palette window modal or tied to which color is right clicked
 
 - [ ] Add Tile Layout saving
 
@@ -167,7 +167,7 @@ reference.
 
 - [ ] Make `nes_palette` strings
 
-- [ ] Add save/save as filename support
+- [ ] Add save/saveAs filename support
 
 - [ ] Add support for specifying a file to open on the cmdline
 

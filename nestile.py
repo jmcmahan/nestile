@@ -97,10 +97,8 @@ class NesTileEdit:
                                         scrollregion=(0,0,256,16 * self.chr_rom_size // 128))
         self.tileset_pixmap.grid(row=0, column=0)
         self.tileset_pixmap.bind("<Button-1>", self.tileset_click)
-
-        #scroll_x = ttk.Scrollbar(self.main_win, orient="horizontal",
-        #                        command=self.tileset_pixmap.xview)
-        #scroll_x.grid(row=1, column=0, sticky="ew")
+        self.tileset_pixmap.bind("<Button-4>", self.tileset_mousewheel)
+        self.tileset_pixmap.bind("<Button-5>", self.tileset_mousewheel)
 
         scroll_y = ttk.Scrollbar(self.main_win, orient="vertical",
                                  command=self.tileset_pixmap.yview)
@@ -135,9 +133,6 @@ class NesTileEdit:
         self.layer_pixmap.pack()
         self.layer_pixmap.bind("<Button-1>", self.layer_click)
         self.layer_configure()
-
-        self.palette_win=None
-        self.palette_pick=None
 
         # Setup user interface
 
@@ -291,12 +286,13 @@ class NesTileEdit:
                                              fill='#FF0000')
         self.tileset_pixmap.create_rectangle(0, 0, 256, 16 * self.chr_rom_size // 256,
                                              fill='#000000', outline='#FF00FF')
-
         x = 0
         y = 0
-
-        for tile in self.tile_data:
+        for i, tile in enumerate(self.tile_data):
             self.draw_tile( self.tileset_pixmap, x, y, TILESCALE, tile, tileset_palette)
+            if i == self.current_tile_num:
+                self.tileset_pixmap.create_rectangle(x, y, x+TILEOFFSET-1, y+TILEOFFSET-1,
+                                             fill='', outline='#00FFFF')
             x += TILEOFFSET
             if x >= TILESPAN*TILEOFFSET:
                 y += TILEOFFSET
@@ -306,17 +302,32 @@ class NesTileEdit:
     def tileset_click(self, event):
         x = self.tileset_pixmap.canvasx(event.x)
         y = self.tileset_pixmap.canvasy(event.y)
-        self.current_tile_num = self.box_number(int(x), int(y), 16, 16, 16)
-        if self.current_tile_num >= len(self.tile_data):
-            messagebox.showerror("Error", "Tile is beyond allocated ROM size.")
-            self.current_tile_num = 0
-        if self.tile_data[self.current_tile_num] is None:
-            self.tile_data[self.current_tile_num] = [[0]*ROWSPAN for x in range(ROWSPAN)]
+        i = self.box_number(int(x), int(y), 16, 16, 16)
+        if i != self.current_tile_num:
+            if i >= len(self.tile_data):
+                messagebox.showerror("Error", "Tile is beyond allocated ROM size.")
+                return
+            if self.tile_data[i] is None:
+                self.tile_data[i] = [[0]*ROWSPAN for j in range(ROWSPAN)]
+            x = (self.current_tile_num  % TILESPAN) * TILEOFFSET
+            y = (self.current_tile_num // TILESPAN) * TILEOFFSET
+            self.draw_tile(self.tileset_pixmap, x, y, TILESCALE,
+                           self.tile_data[self.current_tile_num], tileset_palette)
+            x = (i  % TILESPAN) * TILEOFFSET
+            y = (i // TILESPAN) * TILEOFFSET
+            self.tileset_pixmap.create_rectangle(x, y, x+TILEOFFSET-1, y+TILEOFFSET-1,
+                                             fill='', outline='#00FFFF')
+            self.current_tile_num=i
+
+            # Update edit box with new selected tile
+            self.update_tile_edit()
 
 
-        # add thing to update edit box with selected tile
-        self.update_tile_edit()
-
+    def tileset_mousewheel(self, event):
+        if event.num==4: # Up
+            self.tileset_pixmap.yview_scroll(-1, "units")
+        else: # Down
+            self.tileset_pixmap.yview_scroll(1, "units")
 
     # Tile edit area callbacks
 
@@ -333,14 +344,22 @@ class NesTileEdit:
 
     def colors_configure(self):
         for i in range(4):
-            color = get_color_string( nes_palette[self.current_pal[i]] )
-            self.draw_box_i( self.colors_pixmap, i, 32, 32, 4, color)
+            outline_color = color = get_color_string( nes_palette[self.current_pal[i]] )
+            if i == self.current_col:
+                outline_color = "#00FFFF"
+            self.draw_box_i( self.colors_pixmap, i, 32, 32, 4, color, outline_color)
 
     def colors_leftclick(self, event):
-        self.current_col = self.box_number(event.x, event.y, 32, 32, 4)
+        i = self.current_col
+        color = get_color_string( nes_palette[self.current_pal[i]] )
+        self.draw_box_i( self.colors_pixmap, i, 32, 32, 4, color)
+        self.current_col = i = self.box_number(event.x, event.y, 32, 32, 4)
+        color = get_color_string( nes_palette[self.current_pal[i]] )
+        self.draw_box_i( self.colors_pixmap, i, 32, 32, 4, color, "#00FFFF")
 
     def colors_rightclick(self, event):
-        self.create_palette_win()
+        col = self.box_number( event.x, event.y, 32, 32, 4)
+        self.create_palette_win(col)
 
 
     # Tile layer area callbacks
@@ -355,42 +374,32 @@ class NesTileEdit:
 
     # Palette selection window functions and callbacks
 
-    def create_palette_win(self):
+    def create_palette_win(self, col):
         # Create window for selecting color palette
+        palette_win = tk.Toplevel(self.main_win)
+        palette_win.wm_title('Color Chooser #' + str(col))
+        palette_win.resizable(False, False)
 
-        self.palette_win = tk.Toplevel(self.main_win)
-        self.palette_win.wm_title('Color Chooser')
-        self.palette_win.resizable(False, False)
+        palette_pick = tk.Canvas(palette_win, width=256, height=64, bg='#FFFFFF')
+        palette_pick.grid(column=0, row=0, sticky="new")
 
-        self.palette_pick = tk.Canvas(self.palette_win, width=256, height=64, bg='#FFFFFF')
-        self.palette_pick.grid(column=0, row=0, sticky="new")
-        self.palette_pick.bind("<Button-1>", self.palette_click)
+        palette_pick_action = lambda event : self.palette_click( event, col )
+        palette_pick.bind("<Button-1>", palette_pick_action)
 
-        palette_close = ttk.Button(self.palette_win, text = 'Close',
-                                        command = self.palette_close_click)
+        palette_close = ttk.Button(palette_win, text = 'Close', command = palette_win.destroy)
         palette_close.grid(column=0, row=1, sticky="sew")
 
-        self.palette_configure()
-
-    def palette_configure(self):
         # Draws the colors blocks for selecting from the NES palette
-        for i in range(64):
+        for i in range(len(nes_palette)):
             color = get_color_string(nes_palette[i])
-            self.draw_box_i(self.palette_pick, i, 16, 16, 16, color)
+            self.draw_box_i(palette_pick, i, 16, 16, 16, color)
 
-    def palette_click(self, event):
-        new_color = self.box_number(event.x, event.y, 16, 16, 16)
-        self.update_pal(new_color)
-
-    def palette_close_click(self):
-        self.palette_win.destroy()
-        return True
-
-    def update_pal(self, new_color):
+    def palette_click(self, event, col):
         # Handle change in palette changing displayed colors to reflect it
+        new_color = self.box_number(event.x, event.y, 16, 16, 16)
 
         # Current palette info updated when old info no longer needed
-        self.current_pal[self.current_col] = new_color
+        self.current_pal[col] = new_color
 
         # Redraw the colors bar to show updated palette selection
         self.colors_configure()
@@ -413,10 +422,12 @@ class NesTileEdit:
         return (x // x_len) + row_span * (y // y_len)
 
 
-    def draw_box_i( self, canvas, i, x_len, y_len, rowspan, color):
+    def draw_box_i( self, canvas, i, x_len, y_len, rowspan, color, outline_color=None):
         x = (i  % rowspan) * x_len
         y = (i // rowspan) * y_len
-        canvas.create_rectangle( x,y,x+x_len-1,y+y_len-1, fill=color, outline=color)
+        if outline_color is None:
+            outline_color = color
+        canvas.create_rectangle( x,y,x+x_len-1,y+y_len-1, fill=color, outline=outline_color)
 
 
     def draw_tile_pixel( self, x, y, x_len, y_len, tile_color):
