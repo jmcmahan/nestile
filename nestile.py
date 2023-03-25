@@ -102,7 +102,8 @@ class NesTileEdit:
         #                        command=self.tileset_pixmap.xview)
         #scroll_x.grid(row=1, column=0, sticky="ew")
 
-        scroll_y = ttk.Scrollbar(self.main_win, orient="vertical", command=self.tileset_pixmap.yview)
+        scroll_y = ttk.Scrollbar(self.main_win, orient="vertical",
+                                 command=self.tileset_pixmap.yview)
         scroll_y.grid(row=0, column=1, sticky="ns")
 
         self.tileset_pixmap.configure(yscrollcommand=scroll_y.set) #, xscrollcommand=scroll_x.set)

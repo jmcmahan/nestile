@@ -127,15 +127,15 @@ reference.
 - [x] Drawing past the edge of the window on the Tile Edit window will draw on the
   adjacent tile
 
-- [ ] Changing a color in the palette to something very close to the a color already
+- [x] Changing a color in the palette to something very close to the a color already
   in the palette will change any pixels drawn in that color to the newly
   selected color, as well (this might not be a huge problem, unless you're doing
   something weird).
 
-- [ ] You might have problems with the program if you run a color resolution other
+- [x] You might have problems with the program if you run a color resolution other
   than 16-bit (maybe not, though - haven't tested it).
 
-- [ ] You can't change two colors in the palette to the same color. This is to
+- [x] Fix that you can't change two colors in the palette to the same color. This is to
   prevent the aforementioned bug where you could accidentally overwrite a color
   by selecting one similar to it.
 
@@ -155,6 +155,21 @@ reference.
 
 - [ ] Update README with new requirements and new screen shot
 
+- [ ] Add scroll wheel support
+
+- [ ] Make palette window modal or tied to which color is right clicked
+
+- [ ] Add Tile Layout saving
+
+- [ ] Add Tile Layout batch processing
+
+- [ ] Fix `chr_rom_size` logic
+
+- [ ] Make `nes_palette` strings
+
+- [ ] Add save/save as filename support
+
+- [ ] Add support for specifying a file to open on the cmdline
 
 6. Contact / Credit
 
