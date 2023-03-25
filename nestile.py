@@ -673,8 +673,13 @@ class NesTileEdit:
         self.tile_data = [tile_from_bytes( fdata[i*BYTES_PER_TILE:(i+1)*BYTES_PER_TILE] )
                           for i in range(0, len(fdata)//BYTES_PER_TILE) ]
 
+        self.tile_layout = len(self.tile_data) * [None]
+
         # redraw the windows
+        self.set_current_tile_num(0)
         self._tileset_configure()
+        self._edit_configure()
+        self._tlayout_configure()
 
     # Other cross domain functions
 
