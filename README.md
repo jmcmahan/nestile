@@ -163,7 +163,7 @@ reference.
 
 - [ ] Add Tile Layout batch processing
 
-- [ ] Fix `chr_rom_size` logic
+- [x] Fix `chr_rom_size` logic
 
 - [x] Make `nes_palette` strings
 
