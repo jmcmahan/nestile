@@ -6,6 +6,7 @@
 # Version: 0.3.0
 # See changes.txt for changes and version info
 
+from collections import namedtuple
 from tkinter import filedialog
 from tkinter import messagebox
 from tkinter import simpledialog
@@ -113,15 +114,10 @@ class Tile:
             return 0
         return self._pixels[y][x]
 
-    def getrow(self, y: int) -> list[int]:
-        if self._pixels is None:
-            self._pixels = [[0]*TILESIZE for _ in range(TILESIZE)]
-        return self._pixels[y]
-
-    def __iter__(self):
-        if self._pixels is None:
-            return iter([[0]*TILESIZE for _ in range(TILESIZE)])
-        return iter(self._pixels)
+    #def __iter__(self):
+    #    if self._pixels is None:
+    #        return iter([[0]*TILESIZE for _ in range(TILESIZE)])
+    #    return iter(self._pixels)
 
     def __repr__(self):
         if self._pixels is None:
@@ -168,17 +164,16 @@ class Tile:
                                   for i in range(7,-1,-1) ] )
         return self
 
-def draw_tile(canvas: 'tk.Canvas', xoffset, yoffset, scale, tile: 'Tile', pal: list[str]):
-    if tile is None:
-        canvas.create_rectangle(xoffset, yoffset,
-                                xoffset+TILESIZE*scale-1, yoffset+TILESIZE*scale-1,
-                                fill=pal[0], outline=pal[0])
-        return
-    for y, row in enumerate(tile):
-        for x, pixel in enumerate(row):
-            canvas.create_rectangle(xoffset+x*scale, yoffset+y*scale,
-                                    xoffset+(x+1)*scale-1, yoffset+(y+1)*scale-1,
-                                    fill=pal[pixel], outline=pal[pixel])
+    def draw(self,
+             draw: "Func(start_x:int, start_y:int, stop_x:int, stop_y:int, 'Color')",
+             pal: list['Color']):
+        if self._pixels is None:
+            draw(0, 0, TILESIZE, TILESIZE, pal[0])
+            return
+        for y, row in enumerate(self._pixels):
+            for x, pixel in enumerate(row):
+                draw(x, y, x+1, y+1, pal[pixel])
+
 
 def unittest():
     """
@@ -315,45 +310,49 @@ class TileSet:
         line = "\n---------------------------------------------------------"
         return f"{type(self).__name__}\n"+"\n".join( str(row)+line for row in self.tile_data)
 
+class TileLayerEntry(namedtuple('TileLayerEntry', ['tile', 'palette'])):
+    __slots__ = ()
+
+class TileLayout(namedtuple('TileLayout', ['x', 'y', 'palette'])):
+    __slots__ = ()
+
 class TileLayerData:
-    def __init__(self, num_tiles):
+    def __init__(self):
         """
         Initialize class variables
         """
         self.filename = ''
         self.modified = False
         # Holds information for drawing tiles on the tile layer
-        self.tile_layout = num_tiles * [None]
         # Initialize tile map
-        self.tile_at_xy = [ TLAYOUT_YSPAN*[None] for _ in range(TLAYOUT_XSPAN) ]
+        self._tile_at_xy = [ TLAYOUT_YSPAN*[None] for _ in range(TLAYOUT_XSPAN) ]
 
-    def reset(self, num_tiles):
+    def reset(self):
         """
         reinitialize class variables
         """
         self.filename = ''
         self.modified = False
         # Holds information for drawing tiles on the tile layer
-        self.tile_layout = num_tiles * [None]
         # Initialize tile map
-        self.tile_at_xy = [ TLAYOUT_YSPAN*[None] for _ in range(TLAYOUT_XSPAN) ]
+        self._tile_at_xy = [ TLAYOUT_YSPAN*[None] for _ in range(TLAYOUT_XSPAN) ]
+
+    def tile_layout(self, tile_num: int) -> list([int, int, 'pallet']):
+        return [TileLayout(x, y, data.palette)
+                for x, col in enumerate(self._tile_at_xy)
+                for y, data in enumerate(col)
+                if data is not None and tile_num==data.tile ]
+
 
     def lay_tile(self, col: int, row: int, tile_num: int, pal: list[int]):
-        self.tile_at_xy[col][row] = tile_num
+        self.modified = True
+        self._tile_at_xy[col][row] = TileLayerEntry(tile_num, pal[:])
 
-        t_info = self.tile_layout[tile_num]
-
-        if t_info is None:
-            self.tile_layout[tile_num] = [[col, row, pal[:]]]
-            return
-
-        for t_layout in t_info:
-            if t_layout[0:2] == [col, row]:
-                t_layout[2] = pal[:]
-                return
-
-        self.tile_layout[tile_num].append([col, row, pal[:]])
-
+    def tile_at_xy(self, col: int, row: int):
+        tle = self._tile_at_xy[col][row]
+        if tle is None:
+            return 0
+        return tle.tile
 
 class NesTileEditTk:
     def __init__(self, event_map: 'NesTileEdit'):
@@ -480,15 +479,25 @@ class NesTileEditTk:
 
     def tileset_updatehighlight(self, tile_set: 'TileSet', old_tile_num:int, new_tile_num:int):
         # redraw old Tile without highlight
-        x = (old_tile_num  % TSET_SPAN) * TSET_OFFSET
-        y = (old_tile_num // TSET_SPAN) * TSET_OFFSET
-        draw_tile(self.tileset_pixmap, x, y, TSET_SCALE,
-                       tile_set[old_tile_num], tileset_palette)
+        x_off = (old_tile_num  % TSET_SPAN) * TSET_OFFSET
+        y_off = (old_tile_num // TSET_SPAN) * TSET_OFFSET
+
+        # create draw callback to draw tile to
+        def _draw( start_x, start_y, stop_x, stop_y, color ):
+            self.tileset_pixmap.create_rectangle(
+                x_off+start_x*TSET_SCALE,  y_off+start_y*TSET_SCALE,
+                x_off+stop_x*TSET_SCALE-1, y_off+stop_y*TSET_SCALE-1,
+                fill=color, outline=color)
+
+        tile_set[old_tile_num].draw( _draw, tileset_palette)
+
         # draw highlight around new tile
-        x = (new_tile_num  % TSET_SPAN) * TSET_OFFSET
-        y = (new_tile_num // TSET_SPAN) * TSET_OFFSET
-        self.tileset_pixmap.create_rectangle(x, y, x+TSET_OFFSET-1, y+TSET_OFFSET-1,
-                                         fill='', outline='#00FFFF')
+        x_off = (new_tile_num  % TSET_SPAN) * TSET_OFFSET
+        y_off = (new_tile_num // TSET_SPAN) * TSET_OFFSET
+        self.tileset_pixmap.create_rectangle(
+            x_off, y_off,
+            x_off+TSET_OFFSET-1, y_off+TSET_OFFSET-1,
+            fill='', outline='#00FFFF')
 
     def _tileset_mousewheel(self, event):
         if event.num==4: # Up
@@ -541,19 +550,16 @@ class NesTileEditTk:
                                              fill=color, outline=color)
 
         # Updates all the tiles laid on the tile layer of the same kind
-        t_info = tlayer.tile_layout[tile_num]
-        if t_info is None:
-            return
+        t_info = tlayer.tile_layout(tile_num)
         for t_layout in t_info:
-            if tlayer.tile_at_xy[t_layout[0]][t_layout[1]] == tile_num:
-                color =  nes_palette[t_layout[2][tile_color]]
+            color =  nes_palette[t_layout.palette[tile_color]]
 
-                lay_x = col * TLAYOUT_SCALE + t_layout[0] * TLAYOUT_OFFSET
-                lay_y = row * TLAYOUT_SCALE + t_layout[1] * TLAYOUT_OFFSET
+            lay_x = col * TLAYOUT_SCALE + t_layout.x * TLAYOUT_OFFSET
+            lay_y = row * TLAYOUT_SCALE + t_layout.y * TLAYOUT_OFFSET
 
-                self.tlayout_pixmap.create_rectangle(lay_x, lay_y,
-                                                   lay_x+TLAYOUT_SCALE-1, lay_y+TLAYOUT_SCALE-1,
-                                                   fill=color, outline=color)
+            self.tlayout_pixmap.create_rectangle(
+                lay_x, lay_y,lay_x+TLAYOUT_SCALE-1, lay_y+TLAYOUT_SCALE-1,
+                fill=color, outline=color)
 
     # Tile edit color selection callbacks
 
@@ -615,11 +621,17 @@ class NesTileEditTk:
         self.event_map.lay_tile(col, row)
 
     def lay_tile(self, col, row, tile: 'Tile', pal: list[int]):
-        x_box = col * TLAYOUT_OFFSET
-        y_box = row * TLAYOUT_OFFSET
+        x_off = col * TLAYOUT_OFFSET
+        y_off = row * TLAYOUT_OFFSET
 
-        draw_pal = [nes_palette[i] for i in pal]
-        draw_tile(self.tlayout_pixmap, x_box, y_box, TSET_SCALE, tile, draw_pal)
+        # create draw callback to draw tile to tlayout_pixmap
+        def _draw( start_x, start_y, stop_x, stop_y, color ):
+            self.tlayout_pixmap.create_rectangle(
+                x_off+start_x*TLAYOUT_SCALE,  y_off+start_y*TLAYOUT_SCALE,
+                x_off+stop_x*TLAYOUT_SCALE-1, y_off+stop_y*TLAYOUT_SCALE-1,
+                fill=color, outline=color)
+
+        tile.draw( _draw, [nes_palette[i] for i in pal] )
 
     def tileset_configure(self, tile_set: 'TileSet', current_tile_num: int):
         # Clear out draw window (done in configure before, but trying to avoid
@@ -631,7 +643,15 @@ class NesTileEditTk:
         x = 0
         y = 0
         for i, tile in enumerate(tile_set):
-            draw_tile( self.tileset_pixmap, x, y, TSET_SCALE, tile, tileset_palette)
+            # create draw callback to draw tile to tileset_pixmap
+            def _draw( start_x, start_y, stop_x, stop_y, color ):
+                self.tileset_pixmap.create_rectangle(
+                    x+start_x*TSET_SCALE, y+start_y*TSET_SCALE,
+                    x+stop_x*TSET_SCALE-1, y+stop_y*TSET_SCALE-1,
+                    fill=color, outline=color)
+
+            tile.draw( _draw, tileset_palette)
+
             if i == current_tile_num:
                 self.tileset_pixmap.create_rectangle(x, y, x+TSET_OFFSET-1, y+TSET_OFFSET-1,
                                              fill='', outline='#00FFFF')
@@ -643,8 +663,15 @@ class NesTileEditTk:
     def edit_configure(self, current_tile_num: int, tile: 'Tile', pal: list):
         self.edit_win.wm_title('Tile #' + str(current_tile_num))
         self.edit_pixmap.delete('all')
-        cur_pal = [nes_palette[i] for i in pal]
-        draw_tile(self.edit_pixmap, 0, 0, EDITSCALE, tile, cur_pal)
+
+        # create draw callback to draw tile to edit_pixmap
+        def _draw( start_x, start_y, stop_x, stop_y, color ):
+            self.edit_pixmap.create_rectangle(
+                start_x*EDITSCALE, start_y*EDITSCALE,
+                stop_x*EDITSCALE-1, stop_y*EDITSCALE-1,
+                fill=color, outline=color)
+
+        tile.draw( _draw, [nes_palette[i] for i in pal] )
 
     def colors_configure(self, pal: list, selected_col: int):
         self.colors_pixmap.delete('all')
@@ -676,7 +703,7 @@ class NesTileEdit:
     def __init__(self, filename=None):
         # Initialize class variables
         self._tile_set = TileSet(CROM_INC, filename)
-        self._tlayer = TileLayerData(len(self._tile_set))
+        self._tlayer = TileLayerData()
         self._ui = NesTileEditTk(self)
 
         self.current_pal = [15, 2, 10, 6]
@@ -739,7 +766,7 @@ class NesTileEdit:
             return False
 
         self._tile_set.reset()
-        self._tlayer.reset(len(self._tile_set))
+        self._tlayer.reset()
         self.current_pal = [15, 2, 10, 6]
         # Index into self.current_pal, not nes_palette
         self.current_col = 1
@@ -765,7 +792,7 @@ class NesTileEdit:
 
         self._tile_set.do_open( filename )
 
-        self._tlayer.reset(len(self._tile_set))
+        self._tlayer.reset()
 
         # redraw the windows
         self.set_current_tile_num(0)

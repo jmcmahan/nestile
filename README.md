@@ -163,6 +163,8 @@ reference.
 
 - [ ] Add Tile Layout batch processing
 
+- [ ] Add Tile Layout options to more accurately reflect PPU palettes
+
 - [x] Fix `chr_rom_size` logic
 
 - [x] Make `nes_palette` strings
