@@ -1,0 +1,7 @@
+# The point of this file is to keep the changes from default to a minimum
+#
+[BASIC]
+# Good variable names which should always be accepted, separated by a comma.
+# good-names=i,j,k,ex,Run,_
+good-names=i,j,k,ex,Run,_,x,y
+
