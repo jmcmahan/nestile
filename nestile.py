@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-
-# NES Tile Editor
-# A program for creating and editing graphics for NES programs
-# Author: Jerry McMahan Jr. (ported to python3 and tkinter by Theodore Kotz)
-# Version: 0.3.0
-# See changes.txt for changes and version info
+"""
+NES Tile Editor
+A program for creating and editing graphics for NES programs
+Author: Jerry McMahan Jr. (ported to python3 and tkinter by Theodore Kotz)
+Version: 0.3.0
+See changes.txt for changes and version info
+"""
 
 from collections import namedtuple
 from tkinter import filedialog
@@ -100,6 +101,9 @@ def box_number(x, y, scale, row_span):
 
 
 class Tile:
+    """
+    Represents a single 8x8 Tile that could be mapped to various windows
+    """
     def __init__(self):
         """
         Initialize class variables
@@ -203,6 +207,11 @@ def unittest():
 
 
 class TileSet:
+    """
+    Class holding the tile pixel data for the entire tile set.
+    Represents the data in the character ROM
+
+    """
     def __init__(self, rom_size=CROM_INC, filename=None):
         """
         Initialize class variables
@@ -313,12 +322,22 @@ class TileSet:
         return f"{type(self).__name__}\n"+"\n".join( str(row)+line for row in self.tile_data)
 
 class TileLayerEntry(namedtuple('TileLayerEntry', ['tile', 'palette'])):
+    """
+    Tile and palette of one location
+    """
     __slots__ = ()
 
 class TileLayout(namedtuple('TileLayout', ['x', 'y', 'palette'])):
+    """
+    Location and palette of one tile
+    """
     __slots__ = ()
 
 class TileLayerData:
+    """
+    Class holding the Tile Layout data in the Tile Layer window
+
+    """
     def __init__(self):
         """
         Initialize class variables
@@ -357,6 +376,11 @@ class TileLayerData:
         return tle
 
 class NesTileEditTk:
+    """
+    Class encapsulating the UI components for the NES Tile Editor program
+
+    """
+
     def __init__(self, event_map: 'NesTileEdit'):
         """
         Initialize class variables
@@ -713,7 +737,8 @@ class NesTileEditTk:
 
 
 class NesTileEdit:
-    """Class for the NES Tile Editor program
+    """
+    Class for the NES Tile Editor program
 
     """
 
