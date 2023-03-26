@@ -96,15 +96,6 @@ def box_number(x, y, scale, row_span):
     return (x // scale) + row_span * (y // scale)
 
 
-def draw_box_i(canvas, i, scale, row_span, color, outline_color=None):
-    x = (i  % row_span) * scale
-    y = (i // row_span) * scale
-    if outline_color is None:
-        outline_color = color
-    canvas.create_rectangle( x,y,x+scale-1,y+scale-1, fill=color, outline=outline_color)
-
-
-
 class Tile:
     def __init__(self):
         """
@@ -596,7 +587,11 @@ class NesTileEditTk:
 
         # Draws the colors blocks for selecting from the NES palette
         for i, color in enumerate(nes_palette):
-            draw_box_i(palette_pick, i, PALETTE_BOXSIZE, PALETTE_SPAN, color)
+            x = (i  % PALETTE_SPAN) * PALETTE_BOXSIZE
+            y = (i // PALETTE_SPAN) * PALETTE_BOXSIZE
+            palette_pick.create_rectangle(x,y,
+                                          x+PALETTE_BOXSIZE-1,y+PALETTE_BOXSIZE-1,
+                                          fill=color, outline=color)
 
     def _palette_click(self, event, col):
         """
@@ -654,10 +649,16 @@ class NesTileEditTk:
     def colors_configure(self, pal: list, selected_col: int):
         self.colors_pixmap.delete('all')
         for i, col_idx in enumerate(pal):
-            outline_color = color = nes_palette[col_idx]
+            color = nes_palette[col_idx]
+            x = i * COLORS_BOXSIZE
             if i == selected_col:
-                outline_color = "#00FFFF"
-            draw_box_i( self.colors_pixmap, i, COLORS_BOXSIZE, COLORS_SPAN, color, outline_color)
+                self.colors_pixmap.create_rectangle(x,0,
+                                                    x+COLORS_BOXSIZE-1, COLORS_BOXSIZE-1,
+                                                    fill=color, outline="#00FFFF")
+            else:
+                self.colors_pixmap.create_rectangle(x,0,
+                                                    x+COLORS_BOXSIZE-1, COLORS_BOXSIZE-1,
+                                                    fill=color, outline=color)
 
     def tlayout_configure(self, tile_set: 'TileSet', tlayout: 'TileLayerData'):
         self.tlayout_pixmap.delete('all')
@@ -785,7 +786,8 @@ class NesTileEdit:
 
 
     def save_as_tileset(self):
-        filename = filedialog.asksaveasfilename(filetypes=nes_filetypes, initialfile=self._tile_set.filename )
+        filename = filedialog.asksaveasfilename(filetypes=nes_filetypes,
+                                                initialfile=self._tile_set.filename )
         if not filename:
             return
 
