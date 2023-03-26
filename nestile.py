@@ -85,6 +85,8 @@ tileset_palette = (
 nes_filetypes = (
     ('Raw files', '.*'), ('NES files', '.nes'))
 
+default_palette = (15, 2, 10, 6)
+
 def box_number(x, y, scale, row_span):
     """
     Finds the box number which contains the coordinates (x,y).
@@ -337,7 +339,7 @@ class TileLayerData:
         # Initialize tile map
         self._tile_at_xy = [ TLAYOUT_YSPAN*[None] for _ in range(TLAYOUT_XSPAN) ]
 
-    def tile_layout(self, tile_num: int) -> list([int, int, 'pallet']):
+    def tile_layout(self, tile_num: int) -> list('TileLayout'):
         return [TileLayout(x, y, data.palette)
                 for x, col in enumerate(self._tile_at_xy)
                 for y, data in enumerate(col)
@@ -346,13 +348,13 @@ class TileLayerData:
 
     def lay_tile(self, col: int, row: int, tile_num: int, pal: list[int]):
         self.modified = True
-        self._tile_at_xy[col][row] = TileLayerEntry(tile_num, pal[:])
+        self._tile_at_xy[col][row] = TileLayerEntry(tile_num, tuple(pal))
 
-    def tile_at_xy(self, col: int, row: int):
+    def tile_at_xy(self, col: int, row: int) -> 'TileLayerEntry':
         tle = self._tile_at_xy[col][row]
         if tle is None:
-            return 0
-        return tle.tile
+            return TileLayerEntry(0, default_palette)
+        return tle
 
 class NesTileEditTk:
     def __init__(self, event_map: 'NesTileEdit'):
@@ -387,36 +389,36 @@ class NesTileEditTk:
         Setup events / signals
         """
         self.main_win.wm_title('Tile Set')
-        self.main_win.geometry(str(TSET_WIDTH+24)+'x'+str(TSET_HEIGHT+2))
+        self.main_win.geometry(str(TSET_WIDTH+20)+'x'+str(TSET_HEIGHT+1))
         self.main_win.resizable(False, False)
         self.main_win.protocol("WM_DELETE_WINDOW", event_map.destroy)
-        self.tileset_pixmap.config(bg='#FF0000', width=TSET_WIDTH, height= TSET_HEIGHT)
+        self.tileset_pixmap.config(bg='#FF0000', width=TSET_WIDTH-1, height= TSET_HEIGHT-1)
         self.tileset_pixmap.grid(row=0, column=0)
         self.tileset_pixmap.bind("<Button-1>", self._tileset_click)
         self.tileset_pixmap.bind("<Button-4>", self._tileset_mousewheel)
         self.tileset_pixmap.bind("<Button-5>", self._tileset_mousewheel)
 
         self.edit_win.wm_title('Tile #') #TKOTZ + str(self.current_tile_num))
-        self.edit_win.geometry(str(EDIT_WIDTH+2)+'x'+str(EDIT_HEIGHT+COLORS_HEIGHT+4))
+        self.edit_win.geometry(str(EDIT_WIDTH+1)+'x'+str(EDIT_HEIGHT+COLORS_HEIGHT+2))
         self.edit_win.resizable(False, False)
         self.edit_win.protocol("WM_DELETE_WINDOW", event_map.destroy)
-        self.edit_pixmap.config(width=EDIT_WIDTH, height=EDIT_HEIGHT, bg='#FF0000')
+        self.edit_pixmap.config(width=EDIT_WIDTH-1, height=EDIT_HEIGHT-1, bg='#FF0000')
         self.edit_pixmap.grid(column=0, row=0, sticky="new")
         self.edit_pixmap.bind("<Button-1>", self._edit_leftclick)
         self.edit_pixmap.bind("<B1-Motion>", self._edit_leftclick)
         self.edit_pixmap.bind("<Button-3>", self._edit_rightclick)
         self.edit_pixmap.bind("<B3-Motion>", self._edit_rightclick)
 
-        self.colors_pixmap.config(width=EDIT_WIDTH, height=COLORS_HEIGHT, bg='#FF0000')
+        self.colors_pixmap.config(width=EDIT_WIDTH-1, height=COLORS_HEIGHT-1, bg='#FF0000')
         self.colors_pixmap.grid(column=0, row=1, sticky="sew")
         self.colors_pixmap.bind("<Button-1>", self._colors_leftclick)
         self.colors_pixmap.bind("<Button-3>", self._colors_rightclick)
 
         self.tlayout_win.wm_title('Tile Layer')
-        self.tlayout_win.geometry(str(TLAYOUT_WIDTH+2)+'x'+str(TLAYOUT_HEIGHT+2))
+        self.tlayout_win.geometry(str(TLAYOUT_WIDTH+1)+'x'+str(TLAYOUT_HEIGHT+1))
         self.tlayout_win.resizable(False, False)
         self.tlayout_win.protocol("WM_DELETE_WINDOW", event_map.destroy)
-        self.tlayout_pixmap.config(width=TLAYOUT_WIDTH, height=TLAYOUT_HEIGHT, bg='#FF0000')
+        self.tlayout_pixmap.config(width=TLAYOUT_WIDTH-1, height=TLAYOUT_HEIGHT-1, bg='#FF0000')
         self.tlayout_pixmap.pack()
         self.tlayout_pixmap.bind("<Button-1>", self._tlayout_click)
 
@@ -689,9 +691,24 @@ class NesTileEditTk:
 
     def tlayout_configure(self, tile_set: 'TileSet', tlayout: 'TileLayerData'):
         self.tlayout_pixmap.delete('all')
-        #TKOTZ need to draw all the tiles in the layer
-        self.tlayout_pixmap.create_rectangle( 0, 0, 512, 480, fill="#000000")
-        return True
+        x_off = 0
+        y_off = 0
+
+        # create draw callback to draw tile to tlayout_pixmap
+        def _draw( start_x, start_y, stop_x, stop_y, color ):
+            self.tlayout_pixmap.create_rectangle(
+                x_off+start_x*TLAYOUT_SCALE,  y_off+start_y*TLAYOUT_SCALE,
+                x_off+stop_x*TLAYOUT_SCALE-1, y_off+stop_y*TLAYOUT_SCALE-1,
+                fill=color, outline=color)
+
+        for x in range(TLAYOUT_XSPAN):
+            for y in range(TLAYOUT_YSPAN):
+                tle = tlayout.tile_at_xy(x,y)
+
+                tile_set[tle.tile].draw(_draw, [nes_palette[i] for i in tle.palette])
+                y_off += TLAYOUT_OFFSET
+            x_off += TLAYOUT_OFFSET
+            y_off = 0
 
 
 
@@ -706,7 +723,7 @@ class NesTileEdit:
         self._tlayer = TileLayerData()
         self._ui = NesTileEditTk(self)
 
-        self.current_pal = [15, 2, 10, 6]
+        self.current_pal = list(default_palette)
         # Index into self.current_pal, not nes_palette
         self.current_col = 1
 
@@ -767,7 +784,7 @@ class NesTileEdit:
 
         self._tile_set.reset()
         self._tlayer.reset()
-        self.current_pal = [15, 2, 10, 6]
+        self.current_pal = list(default_palette)
         # Index into self.current_pal, not nes_palette
         self.current_col = 1
         self.current_tile_num = 0
