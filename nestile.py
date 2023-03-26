@@ -635,7 +635,7 @@ class NesTileEditTk:
 
         tile.draw( _draw, [nes_palette[i] for i in pal] )
 
-    def tileset_configure(self, tile_set: 'TileSet', current_tile_num: int):
+    def tileset_redraw_all(self, tile_set: 'TileSet', current_tile_num: int):
         # Clear out draw window (done in configure before, but trying to avoid
         # having my graphics drawn over.
         self.tileset_pixmap.config(scrollregion=(0,0,TSET_WIDTH,
@@ -662,7 +662,7 @@ class NesTileEditTk:
                 y += TSET_OFFSET
                 x = 0
 
-    def edit_configure(self, current_tile_num: int, tile: 'Tile', pal: list):
+    def edit_redraw_all(self, current_tile_num: int, tile: 'Tile', pal: list):
         self.edit_win.wm_title('Tile #' + str(current_tile_num))
         self.edit_pixmap.delete('all')
 
@@ -675,7 +675,7 @@ class NesTileEditTk:
 
         tile.draw( _draw, [nes_palette[i] for i in pal] )
 
-    def colors_configure(self, pal: list, selected_col: int):
+    def colors_redraw_all(self, pal: list, selected_col: int):
         self.colors_pixmap.delete('all')
         for i, col_idx in enumerate(pal):
             color = nes_palette[col_idx]
@@ -689,7 +689,7 @@ class NesTileEditTk:
                                                     x+COLORS_BOXSIZE-1, COLORS_BOXSIZE-1,
                                                     fill=color, outline=color)
 
-    def tlayout_configure(self, tile_set: 'TileSet', tlayout: 'TileLayerData'):
+    def tlayout_redraw_all(self, tile_set: 'TileSet', tlayout: 'TileLayerData'):
         self.tlayout_pixmap.delete('all')
         x_off = 0
         y_off = 0
@@ -730,12 +730,12 @@ class NesTileEdit:
         self.current_tile_num = 0
 
         # Widget display
-        self._ui.tileset_configure(self._tile_set, self.current_tile_num)
-        self._ui.edit_configure(self.current_tile_num,
+        self._ui.tileset_redraw_all(self._tile_set, self.current_tile_num)
+        self._ui.edit_redraw_all(self.current_tile_num,
                                 self._tile_set[self.current_tile_num],
                                 self.current_pal)
-        self._ui.colors_configure(self.current_pal, self.current_col)
-        self._ui.tlayout_configure(self._tile_set, self._tlayer)
+        self._ui.colors_redraw_all(self.current_pal, self.current_col)
+        self._ui.tlayout_redraw_all(self._tile_set, self._tlayer)
 
         print(self._tile_set)
 
@@ -747,7 +747,7 @@ class NesTileEdit:
             self.current_tile_num = idx
 
             # Update edit box with new selected tile
-            self._ui.edit_configure(self.current_tile_num,
+            self._ui.edit_redraw_all(self.current_tile_num,
                                     self._tile_set[self.current_tile_num],
                                     self.current_pal)
 
@@ -790,12 +790,12 @@ class NesTileEdit:
         self.current_tile_num = 0
 
         # Widget display
-        self._ui.tileset_configure(self._tile_set, self.current_tile_num)
-        self._ui.edit_configure(self.current_tile_num,
+        self._ui.tileset_redraw_all(self._tile_set, self.current_tile_num)
+        self._ui.edit_redraw_all(self.current_tile_num,
                                 self._tile_set[self.current_tile_num],
                                 self.current_pal)
-        self._ui.colors_configure(self.current_pal, self.current_col)
-        self._ui.tlayout_configure(self._tile_set, self._tlayer)
+        self._ui.colors_redraw_all(self.current_pal, self.current_col)
+        self._ui.tlayout_redraw_all(self._tile_set, self._tlayer)
         return True
 
 
@@ -813,11 +813,11 @@ class NesTileEdit:
 
         # redraw the windows
         self.set_current_tile_num(0)
-        self._ui.tileset_configure(self._tile_set, self.current_tile_num)
-        self._ui.edit_configure(self.current_tile_num,
+        self._ui.tileset_redraw_all(self._tile_set, self.current_tile_num)
+        self._ui.edit_redraw_all(self.current_tile_num,
                                 self._tile_set[self.current_tile_num],
                                 self.current_pal)
-        self._ui.tlayout_configure(self._tile_set, self._tlayer)
+        self._ui.tlayout_redraw_all(self._tile_set, self._tlayer)
         return True
 
 
@@ -871,14 +871,14 @@ class NesTileEdit:
         #            self.tile_data = self.tile_data[:new_size]
         #            if self.current_tile_num >= new_size:
         #                self.set_current_tile_num(0)
-        #                self._edit_configure()
+        #                self._edit_redraw_all()
         #        else:
         #            for _ in range(len(self.tile_data),new_size):
         #                self.tile_layout.append(None)
         #                self.tile_data.append(None)
         #
         #        # update display
-        #        self._tileset_configure()
+        #        self._tileset_redraw_all()
         #        return True
         #    except ValueError:
         #        messagebox.showerror("Error", "Invalid size specified.")
@@ -894,10 +894,10 @@ class NesTileEdit:
         self.current_pal[palette_idx] = new_nes_color
 
         # Redraw the colors bar to show updated palette selection
-        self._ui.colors_configure(self.current_pal, self.current_col)
+        self._ui.colors_redraw_all(self.current_pal, self.current_col)
 
         # Redraw the edit window with updated palette
-        self._ui.edit_configure(self.current_tile_num,
+        self._ui.edit_redraw_all(self.current_tile_num,
                                 self._tile_set[self.current_tile_num],
                                 self.current_pal)
 
@@ -905,7 +905,7 @@ class NesTileEdit:
         if new_col != self.current_col:
             self.current_col = new_col
             # Redraw the colors bar to show updated palette selection
-            self._ui.colors_configure(self.current_pal, self.current_col)
+            self._ui.colors_redraw_all(self.current_pal, self.current_col)
 
     # Other cross domain functions
 
