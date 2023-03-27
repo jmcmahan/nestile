@@ -1,1048 +1,997 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+"""
+NES Tile Editor
+A program for creating and editing graphics for NES programs
+Author: Jerry McMahan Jr. (ported to python3 and tkinter by Theodore Kotz)
+Version: 0.3.0
+See changes.txt for changes and version info
+"""
 
-# NES Tile Editor
-# A program for creating and editing graphics for NES programs
-# Author: Jerry McMahan Jr.
-# Version: 0.2.0
-# See changes.txt for changes and version info
-
-
+from collections import namedtuple
+from tkinter import filedialog
+from tkinter import messagebox
+from tkinter import simpledialog
+from tkinter import ttk
 import os
-import pygtk
-pygtk.require('2.0')
-import gtk
+import sys
+import tkinter as tk
+
+#Size of a Tile
+TILESIZE=8
+BYTES_PER_TILE=16
+
+# ROM Sizes
+CROM_INC = 8192
+PROM_INC = 16384
+INES_HEADER_SIZE = 16
+INES_HEADER_PROMS_IDX=4
+INES_HEADER_CROMS_IDX=5
+
+#Size of Tile Editor Window
+EDITSCALE=32
+EDIT_WIDTH=TILESIZE*EDITSCALE
+EDIT_HEIGHT=EDIT_WIDTH
+
+#Size of Color Selector
+COLORS_SPAN=4
+COLORS_BOXSIZE=EDIT_WIDTH//COLORS_SPAN
+COLORS_WIDTH=EDIT_WIDTH
+COLORS_HEIGHT=COLORS_BOXSIZE
+
+#Size of Tile Set Window
+TSET_SCALE=3
+TSET_SPAN=16
+TSET_OFFSET=TILESIZE*TSET_SCALE
+TSET_WIDTH=TSET_OFFSET*TSET_SPAN
+TSET_HEIGHT=(TSET_OFFSET * CROM_INC) // (TSET_SPAN * BYTES_PER_TILE)
+
+#size of Tile Layout Window
+TLAYOUT_SCALE=3
+TLAYOUT_XSPAN=32
+TLAYOUT_YSPAN=30
+TLAYOUT_OFFSET=TILESIZE*TLAYOUT_SCALE
+TLAYOUT_WIDTH=TLAYOUT_XSPAN*TLAYOUT_OFFSET
+TLAYOUT_HEIGHT=TLAYOUT_YSPAN*TLAYOUT_OFFSET
+
+#size of Palette seleection Window
+PALETTE_BOXSIZE=16
+PALETTE_SPAN=16
+
 
 
 nes_palette = (
-   (0x80,0x80,0x80), (0x00,0x00,0xbb), (0x37,0x00,0xbf), (0x84,0x00,0xa6),
-   (0xbb,0x00,0x6a), (0xb7,0x00,0x1e), (0xb3,0x00,0x00), (0x91,0x26,0x00),
-   (0x7b,0x2b,0x00), (0x00,0x3e,0x00), (0x00,0x48,0x0d), (0x00,0x3c,0x22),
-   (0x00,0x2f,0x66), (0x00,0x00,0x00), (0x05,0x05,0x05), (0x05,0x05,0x05),
+    "#808080", "#0000bb", "#3700bf", "#8400a6",
+    "#bb006a", "#b7001e", "#b30000", "#912600",
+    "#7b2b00", "#003e00", "#00480d", "#003c22",
+    "#002f66", "#000000", "#050505", "#050505",
 
-   (0xc8,0xc8,0xc8), (0x00,0x59,0xff), (0x44,0x3c,0xff), (0xb7,0x33,0xcc),
-   (0xff,0x33,0xaa), (0xff,0x37,0x5e), (0xff,0x37,0x1a), (0xd5,0x4b,0x00),
-   (0xc4,0x62,0x00), (0x3c,0x7b,0x00), (0x1e,0x84,0x15), (0x00,0x95,0x66),
-   (0x00,0x84,0xc4), (0x11,0x11,0x11), (0x09,0x09,0x09), (0x09,0x09,0x09),
+    "#c8c8c8", "#0059ff", "#443cff", "#b733cc",
+    "#ff33aa", "#ff375e", "#ff371a", "#d54b00",
+    "#c46200", "#3c7b00", "#1e8415", "#009566",
+    "#0084c4", "#111111", "#090909", "#090909",
 
-   (0xff,0xff,0xff), (0x00,0x95,0xff), (0x6f,0x84,0xff), (0xd5,0x6f,0xff),
-   (0xff,0x77,0xcc), (0xff,0x6f,0x99), (0xff,0x7b,0x59), (0xff,0x91,0x5f),
-   (0xff,0xa2,0x33), (0xa6,0xbf,0x00), (0x51,0xd9,0x6a), (0x4d,0xd5,0xae),
-   (0x00,0xd9,0xff), (0x66,0x66,0x66), (0x0d,0x0d,0x0d), (0x0d,0x0d,0x0d),
+    "#ffffff", "#0095ff", "#6f84ff", "#d56fff",
+    "#ff77cc", "#ff6f99", "#ff7b59", "#ff915f",
+    "#ffa233", "#a6bf00", "#51d96a", "#4dd5ae",
+    "#00d9ff", "#666666", "#0d0d0d", "#0d0d0d",
 
-   (0xff,0xff,0xff), (0x84,0xbf,0xff), (0xbb,0xbb,0xff), (0xd0,0xbb,0xff),
-   (0xff,0xbf,0xea), (0xff,0xbf,0xcc), (0xff,0xc4,0xb7), (0xff,0xcc,0xae),
-   (0xff,0xd9,0xa2), (0xcc,0xe1,0x99), (0xae,0xee,0xb7), (0xaa,0xf7,0xee),
-   (0xb3,0xee,0xff), (0xdd,0xdd,0xdd), (0x11,0x11,0x11), (0x11,0x11,0x11))
+    "#ffffff", "#84bfff", "#bbbbff", "#d0bbff",
+    "#ffbfea", "#ffbfcc", "#ffc4b7", "#ffccae",
+    "#ffd9a2", "#cce199", "#aeeeb7", "#aaf7ee",
+    "#b3eeff", "#dddddd", "#111111", "#111111")
 
-               
+tileset_palette = (
+    "#000000", "#00FFFF", "#FF00FF", "#FFFF00")
 
-class NesTileEdit:
-    """Class for the NES Tile Editor program
+nes_filetypes = (
+    ('Raw files', '.*'), ('NES files', '.nes'))
+
+default_palette = (15, 2, 10, 6)
+
+def box_number(x, y, scale, row_span):
+    """
+    Finds the box number which contains the coordinates (x,y).
+    Assumes rectangle is split up into boxes each of size x_len> by y_len,
+    the boxes are numbered 0 through box_num starting at the upper left
+    corner of the rectangle, and row_span boxes in a row.
+
+    Returns the box number which contains the coordinates x, y
+    """
+    return (x // scale) + row_span * (y // scale)
+
+
+class Tile:
+    """
+    Represents a single 8x8 Tile that could be mapped to various windows
+    """
+    def __init__(self):
+        """
+        Initialize class variables
+        """
+        self._pixels = None
+
+    def set(self, x: int, y: int, value: int ):
+        if self._pixels is None:
+            self._pixels = [[0]*TILESIZE for _ in range(TILESIZE)]
+        self._pixels[y][x]=value
+
+    def get(self, x: int, y: int ) -> int:
+        if self._pixels is None:
+            return 0
+        return self._pixels[y][x]
+
+    #def __iter__(self):
+    #    if self._pixels is None:
+    #        return iter([[0]*TILESIZE for _ in range(TILESIZE)])
+    #    return iter(self._pixels)
+
+    def __repr__(self):
+        if self._pixels is None:
+            return "None"
+        return f"{type(self).__name__}\n\t"+"\n\t".join( str(row) for row in self._pixels)
+
+    def __eq__(self, value):
+        if self._pixels is None:
+            return value==[[0]*TILESIZE for _ in range(TILESIZE)]
+        return value==self._pixels
+
+    def tobytes(self) ->  bytes:
+        """
+        Given a tile in the form of 8x8 list or palette indexes
+        returns a string or bytes containing raw NES graphics data (in binary),
+        """
+        if self._pixels is None:
+            return b"\0" * BYTES_PER_TILE
+        hi_data = bytearray(b"")
+        lo_data = bytearray(b"")
+        for row in self._pixels:
+            hi_bits = 0
+            lo_bits = 0
+            for col in row:
+                hi_bits = (hi_bits << 1)+((col >> 1) & 1)
+                lo_bits = (lo_bits << 1)+(col & 1)
+            hi_data.append(hi_bits)
+            lo_data.append(lo_bits)
+        return lo_data + hi_data
+
+    def frombytes(self, data:bytes):
+        """
+        Given a string of bytes containing raw NES graphics data (in binary),
+        returns a tile in the form of 8x8 list or palette indexes
+        """
+        if (b"\0" * BYTES_PER_TILE) == data[0:BYTES_PER_TILE]:
+            self._pixels = None
+            return self
+        self._pixels = []
+        for y in range(TILESIZE):
+            hi_bits = (data[y+8] << 1)
+            lo_bits = data[y]
+            self._pixels.append( [ ((hi_bits >> (i)) & 2) + ((lo_bits >> (i)) & 1)
+                                  for i in range(7,-1,-1) ] )
+        return self
+
+    def draw(self,
+             draw: "Func(start_x:int, start_y:int, stop_x:int, stop_y:int, 'Color')",
+             pal: list['Color']):
+        if self._pixels is None:
+            draw(0, 0, TILESIZE, TILESIZE, pal[0])
+            return
+        for y, row in enumerate(self._pixels):
+            for x, pixel in enumerate(row):
+                draw(x, y, x+1, y+1, pal[pixel])
+
+
+def unittest():
+    """
+    Example from https://www.nesdev.org/wiki/PPU_pattern_tables
+    b"\x41\xC2\x44\x48\x10\x20\x40\x80\x01\x02\x04\x08\x16\x21\x42\x87"
+    [[0, 1, 0, 0, 0, 0, 0, 3],     # .1.....3
+     [1, 1, 0, 0, 0, 0, 3, 0],     # 11....3.
+     [0, 1, 0, 0, 0, 3, 0, 0],     # .1...3..
+     [0, 1, 0, 0, 3, 0, 0, 0],     # .1..3...
+     [0, 0, 0, 3, 0, 2, 2, 0],     # ...3.22.
+     [0, 0, 3, 0, 0, 0, 0, 2],     # ..3....2
+     [0, 3, 0, 0, 0, 0, 2, 0],     # .3....2.
+     [3, 0, 0, 0, 0, 2, 2, 2]]     # 3....222
+    """
+    base_bytes = b"\x41\xC2\x44\x48\x10\x20\x40\x80\x01\x02\x04\x08\x16\x21\x42\x87"
+    print (base_bytes)
+    first_tile = Tile().frombytes(base_bytes)
+    print (first_tile)
+    gen_bytes = first_tile.tobytes()
+    print (gen_bytes)
+    print(base_bytes == gen_bytes)
+    sec_tile = Tile().frombytes(gen_bytes)
+    print (sec_tile)
+    print(first_tile == sec_tile)
+
+
+class TileSet:
+    """
+    Class holding the tile pixel data for the entire tile set.
+    Represents the data in the character ROM
 
     """
-
-
-    main_ui = """<ui>
-                  <menubar name="MenuBar">
-                   <menu action="File">
-                    <menuitem action="New"/>
-                    <menuitem action="Open"/>
-                    <menuitem action="Save"/>
-                    <menuitem action="Quit"/>
-                   </menu>
-                   <menu action="Edit">
-                    <menuitem action="Config"/>
-                   </menu>
-                  </menubar>
-                 </ui>
-              """
-
-
-    def __init__(self):
-
-        # Initialize class variables
-        self.current_pal = [15, 2, 10, 6]
-        # Index into self.current_pal, not nes_palette
-        self.current_col = 0
-        self.current_tile_num = 0
-        self.chr_rom_size = 8192
-        self.filename = ''
-        self.format = 'raw'
+    def __init__(self, rom_size=CROM_INC, filename=None):
+        """
+        Initialize class variables
+        """
+        if filename is not None:
+            if os.path.isfile(filename):
+                self.do_open( filename )
+                return
+            self.filename = filename
+        else:
+            self.filename = ''
+        self.chr_rom_size = rom_size
+        self.file_format = 'raw'
         self.modified = False
-        # Holds information for drawing tiles on the tile layer 
-        self.tile_layout = self.chr_rom_size / 2 * [None]
-        self.quitting = False
-
-        # Don't know why the bottom doesn't work, but it seems to make the 
-        # lists all tie in to one another - the list comprehension given fixes
-        # it (seems to)
-        # self.tile_at_xy = 32 * [30 * [None]]
-        self.tile_at_xy = [ 30*[None] for x in range(32) ]
         # Holds iNES PRG and header data when opening iNES ROM's
         self.ines_data = None
+        # Holds the tile bitmaps as 'Tile's
+        self.tile_data = [Tile() for _ in range(self.chr_rom_size//BYTES_PER_TILE)]
 
-
-        # Create widgets
-        self.main_win = gtk.Window(gtk.WINDOW_TOPLEVEL)
-        self.main_vbox = gtk.VBox()
-        self.main_tileset = gtk.DrawingArea()
-        self.main_scrolled = gtk.ScrolledWindow()
-        self.main_uimanager = gtk.UIManager()
-
-        self.edit_win = gtk.Window(gtk.WINDOW_TOPLEVEL)
-        self.edit_vbox = gtk.VBox()
-        self.edit_canvas = gtk.DrawingArea()
-        self.edit_colors = gtk.DrawingArea()
-
-        self.layer_win = gtk.Window(gtk.WINDOW_TOPLEVEL)
-        self.layer_vbox = gtk.VBox()
-        self.layer_grid = gtk.DrawingArea()
-
-
-        # Create backup pixmaps for drawingareas
-        self.tileset_pixmap = gtk.gdk.Pixmap(None, 256, 
-                                        16 * self.chr_rom_size / 128, 16)
-        self.edit_pixmap = gtk.gdk.Pixmap(None, 128, 128, 16)
-        self.colors_pixmap = gtk.gdk.Pixmap(None, 128, 128, 16)
-        self.layer_pixmap = gtk.gdk.Pixmap(None, 512, 480, 16)
-        self.palette_pixmap = gtk.gdk.Pixmap(None, 512, 480, 16)
-
-        
-        # Setup user interface
-        self.main_accel_group = self.main_uimanager.get_accel_group()
-        self.main_action_group = gtk.ActionGroup('NesTileEdit')
-        self.main_action_group.add_actions(
-           [('File', None, '_File'),
-            ('New', None, '_New', None, None, self.new_tileset),
-            ('Open', None, '_Open', None, None, self.open_tileset),
-            ('Save', None, '_Save', None, None, self.save_tileset),
-            ('Quit', gtk.STOCK_QUIT, '_Quit', None, None, self.destroy),
-            ('Edit', None, '_Edit'),
-            ('Config', None, '_Config', None, None, self.config_tileset)])
-
-        self.main_uimanager.insert_action_group(self.main_action_group, 0)
-        self.main_uimanager.add_ui_from_string(self.main_ui)
-        self.main_menubar = self.main_uimanager.get_widget('/MenuBar')
-
-
-        # Set widget properties
-        self.main_win.set_title('Tile Set')
-        self.main_win.set_size_request(280, 16 * self.chr_rom_size / 256 )
-        self.main_win.set_resizable(False)
-        self.main_tileset.set_size_request(256, 16 * self.chr_rom_size / 256)
-        self.main_scrolled.set_policy(gtk.POLICY_AUTOMATIC, 
-                                      gtk.POLICY_AUTOMATIC)
-        
-        self.edit_win.set_title('Tile #' + str(self.current_tile_num))
-        self.edit_win.set_size_request(128, 192)
-        self.edit_win.set_resizable(False)
-        self.edit_canvas.set_size_request(128, 128)
-        self.edit_colors.set_size_request(128, 32)
-
-        self.layer_win.set_title('Tile Layer')
-        self.layer_grid.set_size_request(512, 480)
-        self.layer_win.set_resizable(False)
-
-
-        # Setup events / signals
-        self.main_win.connect('delete_event', self.delete, 'main')
-        self.main_win.connect('destroy', self.destroy)
-        self.main_tileset.connect('configure_event', self.tileset_configure)
-        self.main_tileset.connect('expose_event', self.tileset_expose)
-        self.main_tileset.connect('button_press_event', self.tileset_click)
-        self.main_tileset.set_events(gtk.gdk.EXPOSURE_MASK |
-                                    gtk.gdk.BUTTON_PRESS_MASK |
-                                    gtk.gdk.LEAVE_NOTIFY_MASK |
-                                    gtk.gdk._2BUTTON_PRESS)
-
-        self.edit_win.connect('delete_event', self.delete, 'edit')
-        self.edit_canvas.connect('configure_event', self.edit_configure)
-        self.edit_canvas.connect('expose_event', self.edit_expose)
-        self.edit_canvas.connect('button_press_event', self.edit_click)
-        self.edit_canvas.connect('motion_notify_event', self.edit_motion)
-        self.edit_canvas.set_events(gtk.gdk.EXPOSURE_MASK |
-                                    gtk.gdk.BUTTON_PRESS_MASK |
-                                    gtk.gdk.LEAVE_NOTIFY_MASK |
-                                    gtk.gdk.POINTER_MOTION_MASK |
-                                    gtk.gdk.POINTER_MOTION_HINT_MASK)
-        self.edit_colors.connect('configure_event', self.colors_configure)
-        self.edit_colors.connect('expose_event', self.colors_expose)
-        self.edit_colors.connect('button_press_event', self.colors_click)
-        self.edit_colors.set_events(gtk.gdk.EXPOSURE_MASK |
-                                    gtk.gdk.BUTTON_PRESS_MASK |
-                                    gtk.gdk.LEAVE_NOTIFY_MASK |
-                                    gtk.gdk._2BUTTON_PRESS)
-
-        self.layer_win.connect('delete_event', self.delete, 'layer')
-        self.layer_grid.connect('configure_event', self.layer_configure)
-        self.layer_grid.connect('expose_event', self.layer_expose)
-        self.layer_grid.connect('button_press_event', self.layer_click)
-        self.layer_grid.set_events(gtk.gdk.EXPOSURE_MASK |
-                                    gtk.gdk.BUTTON_PRESS_MASK |
-                                    gtk.gdk.LEAVE_NOTIFY_MASK |
-                                    gtk.gdk._2BUTTON_PRESS)
-
-
-        # Widget arrangement and display
-        self.main_scrolled.add_with_viewport(self.main_tileset)
-        self.main_vbox.pack_start(self.main_menubar, False)
-        self.main_vbox.pack_end(self.main_scrolled, True, True, 0)
-        self.main_win.add(self.main_vbox)
-        self.main_win.add_accel_group(self.main_accel_group)
-
-        self.edit_vbox.pack_start(self.edit_canvas, False)
-        self.edit_vbox.pack_end(self.edit_colors, False)
-        self.edit_win.add(self.edit_vbox)
-
-        self.layer_vbox.pack_start(self.layer_grid, False)
-        self.layer_win.add(self.layer_vbox)
-
-        self.main_win.show_all()
-        self.edit_win.show_all()
-        self.layer_win.show_all()
-
-        # Clear out draw window (done in configure before, but trying to avoid 
-        # having my graphics drawn over.
-
-        self.tileset_pixmap.draw_rectangle(
-                                self.main_tileset.get_style().black_gc, 
-                                True, 0, 0, 256, 16 * self.chr_rom_size / 256)
-
-    # Generic callbacks
-
-
-    def destroy(self, widget, data=None):
-        # don't like this "self.quitting" business, but whatever, it works
-        if self.modified and not self.quitting:
-            msg = "Save before quitting?"
-            dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
-                                       gtk.MESSAGE_QUESTION,
-                                       gtk.BUTTONS_YES_NO, msg) 
-            dialog.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
-            result = dialog.run()
-            dialog.destroy()
-            if result == gtk.RESPONSE_YES:
-                if self.filename:
-                    # do same as if there's no filename for now
-                    if self.save_tileset(None):
-                        self.quitting = True
-                        gtk.main_quit()
-                    else:
-                        return False
-                     
-                else:
-                    if self.save_tileset(None):
-                        self.quitting = True
-                        gtk.main_quit()
-                    else:
-                        return False
-
-            elif result == gtk.RESPONSE_CANCEL:
-                return False
-            else:
-                self.quitting = True
-                gtk.main_quit()
-                    
-        else:
-            self.quitting = True
-            gtk.main_quit()
-
-
-    def delete(self, widget, event, data=None):
-        if data == 'noquit':
-            return False
-
-        if self.destroy(self.main_win):
-            return False
-        else:
-            return True
-
-
-    # Menubar callbacks
-
-
-    def new_tileset(self, widget):
-        if self.modified:
-            msg = "Save current file?"
-            dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
-                                       gtk.MESSAGE_QUESTION,
-                                       gtk.BUTTONS_YES_NO, msg) 
-            dialog.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
-            result = dialog.run()
-            dialog.destroy()
-            if result == gtk.RESPONSE_YES:
-                if self.filename:
-                    # do same as if there's no filename for now
-                    if not self.save_tileset(None):
-                        return False
-
-            elif result == gtk.RESPONSE_CANCEL:
-                return False
-
-        self.chr_rom_size = 8192
-                    
-        self.main_tileset.set_size_request(256, 16 * self.chr_rom_size / 256)
-        self.tileset_pixmap = gtk.gdk.Pixmap(None, 256, 
-                                             16 * self.chr_rom_size / 128, 16)
-
-        self.tileset_pixmap.draw_rectangle(
-                                self.main_tileset.get_style().black_gc, 
-                                True, 0, 0, 256, 16 * self.chr_rom_size / 256)
-        self.main_tileset.queue_draw() 
+    def reset(self):
+        """
+        Reinitialize class variables
+        except data size is kept
+        """
+        self.filename = ''
+        self.file_format = 'raw'
         self.modified = False
-        self.current_tile_num = 0
-        self.update_tile_edit()
-        
-
-    def open_tileset(self, widget):
-        if self.modified:
-            msg = "Save current file?"
-            dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
-                                       gtk.MESSAGE_QUESTION,
-                                       gtk.BUTTONS_YES_NO, msg) 
-            dialog.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
-            result = dialog.run()
-            dialog.destroy()
-            if result == gtk.RESPONSE_YES:
-                if self.filename:
-                    # do same as if there's no filename for now
-                    if not self.save_tileset(None):
-                        return False
-
-            elif result == gtk.RESPONSE_CANCEL:
-                return False
-
-        self.file_win = gtk.FileSelection("Open")
-        self.file_win.ok_button.connect("clicked", self.do_open)
-        self.file_win.cancel_button.connect("clicked", 
-                                    lambda w: self.file_win.destroy())
-        self.file_win.show()
-        return True
-
-
-
-    def close_tileset(self, widget):
-        pass
-
-
-    def save_tileset(self, widget, data=None):
-        # Bad
-        self.save_success = False
-        while not self.save_success:
-            self.file_win = gtk.FileSelection("Save As")
-            self.file_win.ok_button.connect("clicked", self.do_save)
-            self.file_win.cancel_button.connect("clicked", 
-                                    lambda w: self.file_win.destroy())
-
-            self.file_win.set_modal(True)
-            result = self.file_win.run()
-            if result == gtk.RESPONSE_CANCEL:
-                return False
-            else:
-                self.file_win.destroy()
-                return True
-
-    def config_tileset(self, widget):
-        dialog = gtk.Dialog('Configuration', self.main_win, 
-                            gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT)
-
-        dialog.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
-        dialog.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
-        label = gtk.Label("Size (Bytes)")
-        entry = gtk.Entry(6)
-        entry.set_text('%d' % self.chr_rom_size)
-        dialog.vbox.pack_start(entry, True, True, 0)
-        dialog.vbox.pack_start(label, True, True, 0)
-        label.show()
-        entry.show()
-        result = None
-        while not result == gtk.RESPONSE_CANCEL:
-            result = dialog.run()
-            if result == gtk.RESPONSE_OK and self.format == 'raw':
-                try:
-                    self.chr_rom_size = int(entry.get_text()) 
-                    if (self.chr_rom_size % 8192):
-                        self.chr_rom_size = 8192 + self.chr_rom_size - \
-                                            (self.chr_rom_size % 8192)
-                    if not self.chr_rom_size:
-                        self.chr_rom_size = 8192
-                    dialog.destroy()
-                    
-                    self.main_tileset.set_size_request(256, 
-                                                16 * self.chr_rom_size / 256)
-                    pmap = gtk.gdk.Pixmap(None, 256, 
-                                          16 * self.chr_rom_size / 128, 16)
-
-                    pmap.draw_rectangle(
-                                self.main_tileset.get_style().black_gc, 
-                                True, 0, 0, 256, 16 * self.chr_rom_size / 256)
-                    gc = self.main_tileset.get_style().fg_gc[gtk.STATE_NORMAL]
-
-                    pmap.draw_drawable(gc, self.tileset_pixmap, 0, 0, 0, 0, 
-                                       -1, -1)
-                    self.tileset_pixmap = pmap
-                    self.main_tileset.queue_draw() 
-                    self.current_tile_num = 0
-                    self.update_tile_edit()
-                    break
-
-                except:
-                    msg = "Invalid size specified."
-                    err_dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
-                                              gtk.MESSAGE_ERROR,
-                                              gtk.BUTTONS_CLOSE, msg)
-                    err_dialog.run()
-                    err_dialog.destroy()
-            elif result == gtk.RESPONSE_OK:
-                break
-
-        dialog.destroy()
-
-        return True
-
-
-    # Tile set callbacks
-
-    def tileset_configure(self, widget, event, data=None):
-    # Maybe find something useful to do here - doesn't seem to hurt leaving it 
-    # blank
-
-        return True
-
-
-    def tileset_expose(self, widget, event, data=None):
-        x, y, width, height = event.area
-        widget.window.draw_drawable(widget.get_style().fg_gc[gtk.STATE_NORMAL],
-                                    self.tileset_pixmap, x, y, x, y, 
-                                    width, height)
-        return False
-
-
-    def tileset_click(self, widget, event, data=None):
-        if event.type == gtk.gdk.BUTTON_PRESS:
-            self.current_tile_num = self.box_number(event.x, event.y, 
-                                                    16, 16, 256)
-            # add thing to update edit box with selected tile
-            self.update_tile_edit()
-            return True
-        else:
-            return False
-
-
-    # Tile edit area callbacks
-
-    
-    def edit_configure(self, widget, event, data=None):
-        self.edit_pixmap.draw_rectangle(self.edit_canvas.get_style().black_gc,
-                                        True, 0, 0, 128, 128)
-
-        return True
-
-
-    def edit_expose(self, widget, event, data=None):
-        x, y, width, height = event.area
-        widget.window.draw_drawable(widget.get_style().fg_gc[gtk.STATE_NORMAL],
-                                    self.edit_pixmap, x, y, x, y, 
-                                    width, height)
-        return False
-
-
-    def edit_click(self, widget, event, data=None):
-        if event.type == gtk.gdk.BUTTON_PRESS:
-            self.modified = True
-            self.draw_box(event.x, event.y, 16, 16, 128)
-            self.draw_box_tileset(event.x, event.y, 16, 16, 128)
-            self.draw_box_layer(event.x, event.y, 16, 16, 128)
-
-
-    def edit_motion(self, widget, event, data=None):
-        if event.is_hint:
-            x, y, state = event.window.get_pointer()
-        else:
-            x = event.x
-            y = event.y
-            state = event.state
-
-        if state & gtk.gdk.BUTTON1_MASK:
-            self.modified = True
-            self.draw_box(event.x, event.y, 16, 16, 128)
-            self.draw_box_tileset(event.x, event.y, 16, 16, 128)
-            self.draw_box_layer(event.x, event.y, 16, 16, 128)
-
-    # Tile edit color selection callbacks
-
-
-    def colors_configure(self, widget, event, data=None):
-        gc = event.window.new_gc()
-
-        for i in range(4):
-            x = (i * 32)
-            y = 0
-            color = self.edit_colors.get_colormap().alloc_color(
-                               256 * nes_palette[self.current_pal[i]][0],
-                               256 * nes_palette[self.current_pal[i]][1],
-                               256 * nes_palette[self.current_pal[i]][2])
-
-            gc.foreground = color
-            self.colors_pixmap.draw_rectangle(gc, True, x, y, 32, 32)
-
-        return True
-
-
-    def colors_expose(self, widget, event, data=None):
-        x, y, width, height = event.area
-        widget.window.draw_drawable(widget.get_style().fg_gc[gtk.STATE_NORMAL],
-                                    self.colors_pixmap, x, y, x, y, 
-                                    width, height)
-        return False
-
-    
-    def colors_click(self, widget, event, data=None):
-        if event.type == gtk.gdk._2BUTTON_PRESS:
-            self.create_palette_win()
-        elif event.type == gtk.gdk.BUTTON_PRESS:
-            self.current_col = self.box_number(event.x, event.y, 32, 32, 128)
-            
-
-    # Tile layer area callbacks
-
-
-    def layer_configure(self, widget, event, data=None):
-        self.layer_pixmap.draw_rectangle(self.layer_grid.get_style().black_gc,
-                                        True, 0, 0, 512, 480)
-        return True
-
-
-    def layer_expose(self, widget, event, data=None):
-        x, y, width, height = event.area
-        widget.window.draw_drawable(
-                                widget.get_style().fg_gc[gtk.STATE_NORMAL],
-                                self.layer_pixmap, x, y, x, y, width, height)
-
-        return False
-
-
-    def layer_click(self, widget, event, data=None):
-        if event.type == gtk.gdk.BUTTON_PRESS:
-            self.lay_tile(event.x, event.y, 16, 16)
-            pass
-
-
-    # Palette selection window functions and callbacks
-
-
-    def create_palette_win(self):
-    
-        # Create window for selecting color palette
-        self.palette_win = gtk.Window(gtk.WINDOW_TOPLEVEL)
-        self.palette_vbox = gtk.VBox()
-        self.palette_pick = gtk.DrawingArea()
-        self.palette_close = gtk.Button('Close')
-
-        self.palette_win.set_title('Color Chooser')
-        self.palette_win.set_resizable(False)
-        self.palette_pick.set_size_request(256, 64)
-
-        self.palette_win.connect('delete_event', self.delete, 'noquit')
-        self.palette_pick.connect('configure_event', self.palette_configure)
-        self.palette_pick.connect('expose_event', self.palette_expose)
-        self.palette_pick.connect('button_press_event', self.palette_click)
-        self.palette_close.connect('clicked', self.palette_close_click)
-
-        self.palette_pick.set_events(gtk.gdk.EXPOSURE_MASK |
-                                     gtk.gdk.BUTTON_PRESS_MASK |
-                                     gtk.gdk.LEAVE_NOTIFY_MASK |
-                                     gtk.gdk._2BUTTON_PRESS)
-
-        self.palette_vbox.pack_start(self.palette_pick, False)
-        self.palette_vbox.pack_end(self.palette_close, False)
-        self.palette_win.add(self.palette_vbox)
-
-        self.palette_win.show_all()
-        
-
-    def palette_configure(self, widget, event, data=None):
-
-        gc = event.window.new_gc()
-
-        # Draws the colors blocks for selecting from the NES palette
-        for i in range(64):
-            x = (i * 16) % 256 
-            y = (i / 16) * 16
-            color = self.palette_pick.get_colormap().alloc_color(
-                            nes_palette[i][0] * 256, nes_palette[i][1] * 256,
-                            nes_palette[i][2] * 256)
-            gc.foreground = color
-
-            self.palette_pixmap.draw_rectangle(gc, True, x, y, 16, 16)
-
-        return True
-
-
-    def palette_expose(self, widget, event, data=None):
-        x, y, width, height = event.area
-        widget.window.draw_drawable(
-                                widget.get_style().fg_gc[gtk.STATE_NORMAL],
-                                self.palette_pixmap, x, y, x, y, width, height)
-
-        return False
-
-
-    def palette_click(self, widget, event, data=None):
-        if event.type == gtk.gdk.BUTTON_PRESS:
-            new_color = self.box_number(event.x, event.y, 16, 16, 256)
-            if new_color == self.current_pal[0] or \
-             new_color == self.current_pal[1] or \
-             new_color == self.current_pal[2] or \
-             new_color == self.current_pal[3]:
-                return
-            else:
-                self.update_pal(new_color)
-
-
-    def palette_close_click(self, widget, data=None):
-        self.palette_win.destroy()
-        return True
-
-
-    # Other functions
-
-
-    def update_pal(self, new_color):
-        # Handle change in palette changing displayed colors to reflect it
-
-        # FIX ME!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # This code is terrible. It probably causes bugs, is dependent
-        # on the color depth chosen, and is way too inefficient. However, 
-        # it works for the moment, so it will be fixed later, if at all
-        pbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, 128, 128)
-        pbuf.get_from_drawable(self.edit_pixmap, 
-                               self.edit_pixmap.get_colormap(), 0, 0, 0, 0,
-                               128, 128)
-
-        old_pix = pbuf.get_pixels()
-        new_pix_list = 128*128*3*["\0"]
-
-        
-
-        r_new = chr(nes_palette[new_color][0])
-        g_new = chr(nes_palette[new_color][1])
-        b_new = chr(nes_palette[new_color][2])
-
-        r_old = nes_palette[self.current_pal[self.current_col]][0]
-        g_old = nes_palette[self.current_pal[self.current_col]][1]
-        b_old = nes_palette[self.current_pal[self.current_col]][2]
-
-
-
-        for i in range(0, len(old_pix), 3):
-            if abs(ord(old_pix[i]) - r_old) < 8 and \
-             abs(ord(old_pix[i+1]) - g_old) < 8 and \
-             abs(ord(old_pix[i+2]) - b_old) < 8:
-                new_pix_list[i] = r_new
-                new_pix_list[i+1] = g_new
-                new_pix_list[i+2] = b_new
-            else:
-                new_pix_list[i] = old_pix[i]
-                new_pix_list[i+1] = old_pix[i+1]
-                new_pix_list[i+2] = old_pix[i+2]
-                
-                
-        new_pix = ''.join(new_pix_list)
-
-        gc = self.edit_canvas.get_style().fg_gc[gtk.STATE_NORMAL]
-        self.edit_pixmap.draw_rgb_image(gc, 0, 0, 128, 128, 
-                                    gtk.gdk.RGB_DITHER_NONE, new_pix, 128*3)
-
-
-        gc = self.edit_colors.window.new_gc()
-
-        color = self.edit_colors.get_colormap().alloc_color(
-                    256 * nes_palette[new_color][0], 
-                    256 * nes_palette[new_color][1],
-                    256 * nes_palette[new_color][2])
-
-        gc.foreground = color
-        self.colors_pixmap.draw_rectangle(gc, True, self.current_col * 32, 0, 
-                                                    32, 32)
-
-        # Current palette info updated when old info no longer needed
-        self.current_pal[self.current_col] = new_color
-
-        # Redraw the colors bar to show updated palette selection
-        self.edit_colors.queue_draw_area(0, 0, 128, 32)
-        self.edit_canvas.queue_draw_area(0, 0, 128, 128)
-
-
-
-
-    def box_number(self, x, y, x_len, y_len, rowspan):
-        # If a square is split up into boxes each of size x_len by 
-        # y_len, the boxes are numbered 0 through box_num starting at the
-        # upper left corner of the square, and the square's horizontal size is
-        # rowspan, then this function returns the box number which contains 
-        # the coordinates x, y.
-
-        #return int(x / x_len) % rowspan + y_len * int(y / y_len)
-        return int(x / x_len) % rowspan + int(rowspan / x_len) * int(y / y_len)
-
-
-    def draw_box(self, x, y, x_len, y_len, rowspan):
-        # Given the x,y coordinates, x and y length of the pixels in the tile, 
-        # and the number of pixels the drawing area is across, draw a box at 
-        # the tile with the currently selected color
-        gc = self.edit_canvas.window.new_gc()
-
-        color = self.edit_canvas.get_colormap().alloc_color(
-                    256 * nes_palette[self.current_pal[self.current_col]][0],
-                    256 * nes_palette[self.current_pal[self.current_col]][1],
-                    256 * nes_palette[self.current_pal[self.current_col]][2])
-        gc.foreground = color
-
-        x_int = (int(x / x_len) * x_len) % rowspan
-        y_int = int(y / y_len) * y_len
-        self.edit_pixmap.draw_rectangle(gc, True, x_int, y_int, x_len, x_len)
-        self.edit_canvas.queue_draw_area(x_int, y_int, x_len, y_len)
-
-
-    def draw_box_tileset(self, x, y, x_len, y_len, rowspan):
-        # Same as above, but does it for the tileset window
-        gc = self.main_tileset.window.new_gc()
-        color = self.main_tileset.get_colormap().alloc_color(
-                    self.current_col * 21845, 
-                    self.current_col * 21845,
-                    self.current_col * 21845)
-        gc.foreground = color
-
-        x_int = (int(x / x_len) * 2) % rowspan + \
-                16 * (self.current_tile_num % 16)
-        y_int = int(y / y_len) * 2 + 16 * int(self.current_tile_num / 16)
-
-        self.tileset_pixmap.draw_rectangle(gc, True, x_int, y_int, 2, 2)
-        self.main_tileset.queue_draw_area(x_int, y_int, 2, 2)
-
-
-    def draw_box_layer(self, x, y, x_len, y_len, rowspan):
-        # Updates all the tiles laid on the tile layer of the same kind
-
-
-        if int(x) > rowspan:
-            return
-
-        t_info = self.tile_layout[self.current_tile_num]
-        if t_info == None:
-            return
-
-        for c in t_info:
-            
-            if self.tile_at_xy[c[0] / 16][c[1] / 16] == self.current_tile_num:
-                
-
-                gc = self.layer_grid.window.new_gc()
-                color = self.layer_grid.get_colormap().alloc_color(
-                        nes_palette[c[2][self.current_col]][0] * 256,
-                        nes_palette[c[2][self.current_col]][1] * 256,
-                        nes_palette[c[2][self.current_col]][2] * 256)
-                gc.foreground = color
-
-                x_int = int(x / x_len) * 2 + c[0]
-                y_int = int(y / y_len) * 2 + c[1]
-
-                self.layer_pixmap.draw_rectangle(gc, True, x_int, y_int, 2, 2)
-                self.layer_grid.queue_draw_area(x_int, y_int, 2, 2)
-
-            
-
-
-    def update_tile_edit(self):
-        self.edit_win.set_title('Tile #' + str(self.current_tile_num))
-
-        pbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, 16, 16)
-        pbuf.get_from_drawable(self.tileset_pixmap, 
-                    self.main_tileset.get_colormap(), 
-                    (self.current_tile_num % 16) * 16,
-                    int(self.current_tile_num / 16) * 16,
-                    0, 0, 16, 16)
-        pbuf_scaled = pbuf.scale_simple(128, 128, gtk.gdk.INTERP_NEAREST)
-
-        old_pix = pbuf_scaled.get_pixels()
-        new_pix_l = 128*128*3*["\0"]
-
-        r = []
-        g = []
-        b = []
-        for i in range(4):
-            r.append(chr(nes_palette[self.current_pal[i]][0]))
-            g.append(chr(nes_palette[self.current_pal[i]][1]))
-            b.append(chr(nes_palette[self.current_pal[i]][2]))
-             
-        # Convert black and white to current palette
-        
-        for i in range(0, len(old_pix), 3):
-            if abs(ord(old_pix[i]) - 0) < 8 and \
-             abs(ord(old_pix[i+1]) - 0) < 8 and \
-             abs(ord(old_pix[i+1]) - 0) < 8:
-                new_pix_l[i] = r[0]
-                new_pix_l[i+1] = g[0]
-                new_pix_l[i+2] = b[0]
-
-            elif abs(ord(old_pix[i]) - 85) < 8 and \
-             abs(ord(old_pix[i+1]) - 85) < 8 and \
-             abs(ord(old_pix[i+1]) - 85) < 8:
-                new_pix_l[i] = r[1]
-                new_pix_l[i+1] = g[1]
-                new_pix_l[i+2] = b[1]
-
-            elif abs(ord(old_pix[i]) - 170) < 8 and \
-             abs(ord(old_pix[i+1]) - 170) < 8 and \
-             abs(ord(old_pix[i+1]) - 170) < 8:
-                new_pix_l[i] = r[2]
-                new_pix_l[i+1] = g[2]
-                new_pix_l[i+2] = b[2]
-
-            else: 
-                new_pix_l[i] = r[3]
-                new_pix_l[i+1] = g[3]
-                new_pix_l[i+2] = b[3]
-
-
-        new_pix = ''.join(new_pix_l)
-
-        gc = self.edit_canvas.get_style().fg_gc[gtk.STATE_NORMAL]
-        self.edit_pixmap.draw_rgb_image(gc, 0, 0, 128, 128,
-                                    gtk.gdk.RGB_DITHER_NONE, new_pix, 128*3)
-
-        self.edit_canvas.queue_draw_area(0, 0, 128, 128) 
-
-
-    def do_save(self, widget, data=None):
+        # Holds iNES PRG and header data when opening iNES ROM's
+        self.ines_data = None
+        # Holds the tile bitmaps as 'Tile's
+        self.tile_data = [Tile() for _ in range(self.chr_rom_size//BYTES_PER_TILE)]
+
+    # File I/O functions
+
+    def do_save(self, filename: str):
+        """
+        Saves the tile data to the file at filename
+        """
         # Later, try to differentiate between different file formats here
         # but just treat everything like a raw binary file for now
-        current = self.filename
-        self.filename = self.file_win.get_filename()
-        if self.filename != current:
-            if os.path.exists(self.filename):
-                dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
-                                           gtk.MESSAGE_QUESTION,
-                                           gtk.BUTTONS_YES_NO, 
-                                           "Overwrite %s?" % self.filename)
-                result = dialog.run()
-                dialog.destroy()
-                if result != gtk.RESPONSE_YES:
-                    self.save_success = False
-                    self.filename = current
-                    return False
+        output_string = b"".join([tile.tobytes() for tile in self.tile_data ])
 
-        pbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, 
-                            self.tileset_pixmap.get_size()[0],
-                            self.tileset_pixmap.get_size()[1])
-        pbuf.get_from_drawable(self.tileset_pixmap, 
-                            self.main_tileset.get_colormap(),
-                            0, 0, 0, 0, -1, -1)
-        pixels = pbuf.get_pixels()
-
-        pix_list = len(pixels) / 12 * [0]
-        for i in range(len(pix_list)):
-            pix_list[i] = ord(pixels[i * 6]) / 64
+        with open(filename, 'wb') as fout:
+            if self.file_format == 'raw':
+                fout.write(output_string)
+            elif self.file_format == 'ines':
+                fout.write(self.ines_data + output_string)
+            self.modified = False
+            self.filename = filename
 
 
-        for i in range(len(pix_list) / 128):
-            for j in range(128):
-                pix_list[i*128 + j] = ord(pixels[i*12*128 + j*6]) / 64
-            
-        output_list = [self.tile_string_from_list(pix_list, x, 128) for \
-                        x in range(len(pix_list) / 128)]
+    def do_open(self, filename: str):
+        """
+        Reads the tile data from the file at filename
+        """
+        self.filename = filename
+        with open(self.filename, 'rb') as fin:
+            fdata = fin.read()
 
-        output_string = ''.join(output_list)
-            
-        f = open(self.filename, 'wb')
-        if self.format == 'raw':
-            f.write(output_string)
-        elif self.format == 'ines':
-            f.write(self.ines_data + output_string)
-        f.close()
-        self.modified = False
-        self.save_success = True
-        return True
-            
-
-    def tile_string_from_list(self, list, tile_num, rowspan):
-        # Returns a string representing the tile, 'tile_num', for         
-        # the list 'rowspan' pixels wide.
-        # The string is the binary data of the tile in NES graphics format
-
-        x_len = 8
-        y_len = 8
-        x = x_len * (tile_num % int(rowspan / x_len))
-        y = y_len * int(tile_num / int(rowspan / x_len))
-        offset = x + y * rowspan
-        
-        return_string = 16*['0']
-        
-        for j in range(8):
-            low = 0
-            high = 0
-            for i in range(8):
-                low = low + ((list[offset + j * rowspan + i] % 2) << (7 - i))
-                high = high + (int(list[offset + 
-                               j * rowspan + i] / 2) << (7 - i))
-
-            return_string[j] = chr(low)
-            return_string[j + 8] = chr(high)
-
-        return ''.join(return_string)
-        
-
-    def do_open(self, widget, data=None):
-        self.filename = self.file_win.get_filename()
-        self.file_win.destroy()
-        f = open(self.filename, 'rb')
-        fdata = f.read()
-        f.close()
-
-        if self.filename.split('.')[-1] == 'nes':
-            self.format = 'ines'
+        if self.filename.split('.')[-1] == 'nes' and len(fdata) >= INES_HEADER_SIZE:
+            self.file_format = 'ines'
+            proms = fdata[INES_HEADER_PROMS_IDX]
+            croms = fdata[INES_HEADER_CROMS_IDX]
+            prom_size = INES_HEADER_SIZE + PROM_INC * proms
+            self.chr_rom_size = CROM_INC * croms
+            self.ines_data = fdata[0: prom_size]
+            fdata = fdata[prom_size: prom_size + self.chr_rom_size]
         else:
-            self.format = 'raw'
-
-        if self.format == 'ines':
-            proms = ord(fdata[4])
-            croms = ord(fdata[5])
-            self.ines_data = fdata[0: 16 + 16384 * proms]
-            tmp = fdata[16 + 16384 * proms: 16 + 16384 * proms + 8192 * croms]
-            fdata = tmp
-            self.chr_rom_size = 8192 * croms 
-        else:
+            self.file_format = 'raw'
+            self.ines_data = None
             # if not iNES, make sure data length is a multiple of 8192
-            if len(fdata) % 8192 == 0:
+            if len(fdata) % CROM_INC == 0:
                 self.chr_rom_size = len(fdata)
             else:
-                fdata = fdata + (8192 - (len(fdata) % 8192)) * '\0'
-                self.chr_rom_size = 8192 * (int(len(fdata) / 8192) + 1)
-            
+                fdata = fdata + (CROM_INC - (len(fdata) % CROM_INC)) * b'\0'
+                self.chr_rom_size = CROM_INC * (int(len(fdata) / CROM_INC) + 1)
 
         if len(fdata) < self.chr_rom_size:
             self.chr_rom_size = len(fdata)
 
-        self.main_tileset.set_size_request(256, 16 * self.chr_rom_size / 256)
-        self.tileset_pixmap = gtk.gdk.Pixmap(None, 256, 
-                                        16 * self.chr_rom_size / 128, 16)
-
-        self.tile_layout = self.chr_rom_size / 2 * [None]
-    
-        pix_list = 128 * 8 * self.chr_rom_size / 256 * 3 * ["\0"]
-
-        for i in range(self.chr_rom_size / 16):
-            self.tile_list_from_string(fdata, pix_list, i, 128)
-        
-        self.tile_list_from_string(fdata, pix_list, 0, 128)
-        pix_string = ''.join(pix_list)
-
-
-        # Terrible...
-        pmap = gtk.gdk.Pixmap(None, 128, 8 * self.chr_rom_size / 256, 16)
-        gc = self.main_tileset.get_style().fg_gc[gtk.STATE_NORMAL]
-        pmap.draw_rgb_image(gc, 0, 0, 128, 8 * self.chr_rom_size / 256,
-                            gtk.gdk.RGB_DITHER_NONE, pix_string, 128*3)
-
-        pbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, 128, 
-                              8 * self.chr_rom_size / 256)
-
-        pbuf.get_from_drawable(pmap, self.main_tileset.get_colormap(),
-                                0, 0, 0, 0, -1, -1)
-
-        pbuf_scaled = pbuf.scale_simple(256, 16 * self.chr_rom_size / 256,
-                                        gtk.gdk.INTERP_NEAREST)
-
-        self.tileset_pixmap.draw_pixbuf(gc, pbuf_scaled, 0, 0, 0, 0,
-                            256, 16 * self.chr_rom_size / 256,
-                            gtk.gdk.RGB_DITHER_NONE)
-
-        self.current_tile_num = 0
-        self.update_tile_edit()
-
-        self.main_tileset.queue_draw()
+        self.tile_data = [Tile().frombytes( fdata[i*BYTES_PER_TILE:(i+1)*BYTES_PER_TILE] )
+                          for i in range(0, len(fdata)//BYTES_PER_TILE) ]
         self.modified = False
 
 
-    def tile_list_from_string(self, string, list, tile_num, rowspan):
-        # Given a string containing NES graphics data (in binary), a
-        # list representing the RGB data for an image to be displayed, 
-        # and a tile number, add the tile to the list
+    def update_tile_pixel(self, idx, x, y, color):
+        self.modified = True
+        self.tile_data[idx].set(x,y,color)
 
-        x_len = 8
-        y_len = 8
-        x = x_len * (tile_num % int(rowspan / x_len))
-        y = y_len * int(tile_num / int(rowspan / x_len))
-
-        tiles = [ord(a) for a in string[tile_num * 16 : tile_num * 16 + 16]]
-
-        offset = (x + y * rowspan) * 3
-
-        for j in range(8):
-
-            for i in range(8):
-                # Add twice to multiply by 2 (supposedly faster)
-                v = (((tiles[j] >> (7 - i)) & 1) + \
-                    ((tiles[j+8] >> (7 - i)) & 1) + \
-                    ((tiles[j+8] >> (7 - i)) & 1)) * 85
-
-                list[offset + (i + rowspan * j) * 3] = chr(v)
-                list[offset + (i + rowspan * j) * 3 + 1] = chr(v)
-                list[offset + (i + rowspan * j) * 3 + 2] = chr(v)
+    def resize(self, new_size):
+        # resize tile data elements
+        if len(self.tile_data)>new_size:
+            self.tile_data = self.tile_data[:new_size]
+        else:
+            for _ in range(len(self.tile_data),new_size):
+                self.tile_data.append(Tile())
 
 
-    def lay_tile(self, x, y, x_len, y_len):
-        # Draw the current tile at the block in location x, y with a x and y
-        # size of x_len and y_len
+    def __getitem__(self, key):
+        return self.tile_data[key]
 
-        x_box = int(x) - (int(x) % 16)
-        y_box = int(y) - (int(y) % 16)
+    #def __delitem__(self, key):
+    #    del self.tile_data[key]
+
+    #def __setitem__(self, key, value):
+    #    self.tile_data[key]=value
+
+    def __iter__(self):
+        return iter(self.tile_data)
+
+    def __len__(self):
+        return len(self.tile_data)
+
+    def __repr__(self):
+        line = "\n---------------------------------------------------------"
+        return f"{type(self).__name__}\n"+"\n".join( str(row)+line for row in self.tile_data)
+
+class TileLayerEntry(namedtuple('TileLayerEntry', ['tile', 'palette'])):
+    """
+    Tile and palette of one location
+    """
+    __slots__ = ()
+
+class TileLayout(namedtuple('TileLayout', ['x', 'y', 'palette'])):
+    """
+    Location and palette of one tile
+    """
+    __slots__ = ()
+
+class TileLayerData:
+    """
+    Class holding the Tile Layout data in the Tile Layer window
+
+    """
+    def __init__(self):
+        """
+        Initialize class variables
+        """
+        self.filename = ''
+        self.modified = False
+        # Holds information for drawing tiles on the tile layer
+        # Initialize tile map
+        self._tile_at_xy = [ TLAYOUT_YSPAN*[None] for _ in range(TLAYOUT_XSPAN) ]
+
+    def reset(self):
+        """
+        reinitialize class variables
+        """
+        self.filename = ''
+        self.modified = False
+        # Holds information for drawing tiles on the tile layer
+        # Initialize tile map
+        self._tile_at_xy = [ TLAYOUT_YSPAN*[None] for _ in range(TLAYOUT_XSPAN) ]
+
+    def tile_layout(self, tile_num: int) -> list('TileLayout'):
+        return [TileLayout(x, y, data.palette)
+                for x, col in enumerate(self._tile_at_xy)
+                for y, data in enumerate(col)
+                if data is not None and tile_num==data.tile ]
 
 
-        pbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, 128, 128)
-        pbuf.get_from_drawable(self.edit_pixmap, 
-                               self.edit_canvas.get_colormap(), 0, 0, 0, 0, 
-                               -1, -1)
-        pbuf_scaled = pbuf.scale_simple(16, 16, gtk.gdk.INTERP_NEAREST)
-        self.layer_pixmap.draw_pixbuf(None, pbuf_scaled, 0, 0, x_box, y_box, 
-                                    -1, -1, gtk.gdk.RGB_DITHER_NONE)
+    def lay_tile(self, col: int, row: int, tile_num: int, pal: list[int]):
+        self.modified = True
+        self._tile_at_xy[col][row] = TileLayerEntry(tile_num, tuple(pal))
 
-        self.layer_grid.queue_draw_area(x_box, y_box, 16, 16)
+    def tile_at_xy(self, col: int, row: int) -> 'TileLayerEntry':
+        tle = self._tile_at_xy[col][row]
+        if tle is None:
+            return TileLayerEntry(0, default_palette)
+        return tle
 
-        self.tile_at_xy[x_box / 16][y_box / 16] = self.current_tile_num
-        
-        t_info = self.tile_layout[self.current_tile_num]
+class NesTileEditTk:
+    """
+    Class encapsulating the UI components for the NES Tile Editor program
 
-        cur_pal = [self.current_pal[i] for i in range(4)]
-        
-        if t_info == None:
-            self.tile_layout[self.current_tile_num] = [[x_box, y_box, 
-                    cur_pal]]
+    """
+
+    def __init__(self, event_map: 'NesTileEdit'):
+        """
+        Initialize class variables
+        """
+        # Create widgets
+        self.event_map = event_map
+        self.root = tk.Tk()
+        self.main_win = self.root
+        self.tileset_pixmap = tk.Canvas(self.main_win)
+        scroll_y = ttk.Scrollbar(self.main_win, orient="vertical",
+                                 command=self.tileset_pixmap.yview)
+        scroll_y.grid(row=0, column=1, sticky="ns")
+        self.tileset_pixmap.configure(yscrollcommand=scroll_y.set)
+
+        self.edit_win = tk.Toplevel(self.root)
+        self.edit_pixmap = tk.Canvas(self.edit_win)
+        self.colors_pixmap = tk.Canvas(self.edit_win)
+
+        self.tlayout_win = tk.Toplevel(self.root)
+        self.tlayout_pixmap = tk.Canvas(self.tlayout_win)
+
+        # Setup user interface
+        self._setup_ui(event_map)
+        self._build_menu(event_map)
+
+    def _setup_ui(self, event_map: 'NesTileEdit'):
+        """
+        Set widget properties
+        Widget arrangement and display
+        Setup events / signals
+        """
+        self.main_win.wm_title('Tile Set')
+        self.main_win.geometry(str(TSET_WIDTH+20)+'x'+str(TSET_HEIGHT+1))
+        self.main_win.resizable(False, False)
+        self.main_win.protocol("WM_DELETE_WINDOW", event_map.destroy)
+        self.tileset_pixmap.config(bg='#FF0000', width=TSET_WIDTH-1, height= TSET_HEIGHT-1)
+        self.tileset_pixmap.grid(row=0, column=0)
+        self.tileset_pixmap.bind("<Button-1>", self._tileset_click)
+        self.tileset_pixmap.bind("<Button-4>", self._tileset_mousewheel)
+        self.tileset_pixmap.bind("<Button-5>", self._tileset_mousewheel)
+
+        self.edit_win.wm_title('Tile #')
+        self.edit_win.geometry(str(EDIT_WIDTH+1)+'x'+str(EDIT_HEIGHT+COLORS_HEIGHT+2))
+        self.edit_win.resizable(False, False)
+        self.edit_win.protocol("WM_DELETE_WINDOW", event_map.destroy)
+        self.edit_pixmap.config(width=EDIT_WIDTH-1, height=EDIT_HEIGHT-1, bg='#FF0000')
+        self.edit_pixmap.grid(column=0, row=0, sticky="new")
+        self.edit_pixmap.bind("<Button-1>", self._edit_leftclick)
+        self.edit_pixmap.bind("<B1-Motion>", self._edit_leftclick)
+        self.edit_pixmap.bind("<Button-3>", self._edit_rightclick)
+        self.edit_pixmap.bind("<B3-Motion>", self._edit_rightclick)
+
+        self.colors_pixmap.config(width=EDIT_WIDTH-1, height=COLORS_HEIGHT-1, bg='#FF0000')
+        self.colors_pixmap.grid(column=0, row=1, sticky="sew")
+        self.colors_pixmap.bind("<Button-1>", self._colors_leftclick)
+        self.colors_pixmap.bind("<Button-3>", self._colors_rightclick)
+
+        self.tlayout_win.wm_title('Tile Layer')
+        self.tlayout_win.geometry(str(TLAYOUT_WIDTH+1)+'x'+str(TLAYOUT_HEIGHT+1))
+        self.tlayout_win.resizable(False, False)
+        self.tlayout_win.protocol("WM_DELETE_WINDOW", event_map.destroy)
+        self.tlayout_pixmap.config(width=TLAYOUT_WIDTH-1, height=TLAYOUT_HEIGHT-1, bg='#FF0000')
+        self.tlayout_pixmap.pack()
+        self.tlayout_pixmap.bind("<Button-1>", self._tlayout_click)
+
+    def _build_menu(self, event_map: 'NesTileEdit'):
+        """
+        <ui>
+         <menubar name="MenuBar">
+          <menu action="File">
+           <menuitem action="New"/>
+           <menuitem action="Open..."/>
+           <menuitem action="Save"/>
+           <menuitem action="Save As..."/>
+           <menuitem action="Quit"/>
+          </menu>
+          <menu action="Edit">
+           <menuitem action="Config..."/>
+          </menu>
+         </menubar>
+        </ui>
+        """
+        main_menubar = tk.Menu(self.main_win)
+        self.main_win.config(menu = main_menubar)
+
+        main_file_menu = tk.Menu(main_menubar)
+        main_file_menu.add_command(label="New", command=event_map.new_tileset,
+                                        underline=0, accelerator="Ctrl+N")
+        self.root.bind_all("<Control-n>", lambda x: event_map.new_tileset())
+        main_file_menu.add_command(label="Open...", command=event_map.open_tileset,
+                                        underline=0, accelerator="Ctrl+O")
+        self.root.bind_all("<Control-o>", lambda x: event_map.open_tileset())
+        main_file_menu.add_command(label="Save", command=event_map.save_tileset,
+                                        underline=0, accelerator="Ctrl+S")
+        self.root.bind_all("<Control-s>", lambda x: event_map.save_tileset())
+        main_file_menu.add_command(label="Save As...", command=event_map.save_as_tileset,
+                                        underline=5, accelerator="Ctrl+Shift+S")
+        self.root.bind_all("<Control-S>", lambda x: event_map.save_as_tileset())
+        main_file_menu.add_command(label="Quit", command=event_map.destroy,
+                                        underline=0, accelerator="Ctrl+Q")
+        self.root.bind_all("<Control-q>", lambda x: event_map.destroy())
+        main_menubar.add_cascade(label="File", menu=main_file_menu, underline=0)
+
+        main_edit_menu = tk.Menu(main_menubar)
+        main_edit_menu.add_command(label="Config...", command=event_map.config_tileset, underline=0)
+
+        main_menubar.add_cascade(label="Edit", menu=main_edit_menu, underline=0)
+
+    def destroy(self):
+        self.root.destroy()
+
+    def mainloop(self):
+        self.root.mainloop()
+
+    # Tile set callbacks
+
+    def _tileset_click(self, event):
+        x = self.tileset_pixmap.canvasx(event.x)
+        y = self.tileset_pixmap.canvasy(event.y)
+        i = box_number(int(x), int(y), TSET_OFFSET, TSET_SPAN)
+        self.event_map.set_current_tile_num(i)
+
+    def tileset_updatehighlight(self, tile_set: 'TileSet', old_tile_num:int, new_tile_num:int):
+        # redraw old Tile without highlight
+        x_off = (old_tile_num  % TSET_SPAN) * TSET_OFFSET
+        y_off = (old_tile_num // TSET_SPAN) * TSET_OFFSET
+
+        # create draw callback to draw tile to
+        def _draw( start_x, start_y, stop_x, stop_y, color ):
+            self.tileset_pixmap.create_rectangle(
+                x_off+start_x*TSET_SCALE,  y_off+start_y*TSET_SCALE,
+                x_off+stop_x*TSET_SCALE-1, y_off+stop_y*TSET_SCALE-1,
+                fill=color, outline=color)
+
+        tile_set[old_tile_num].draw( _draw, tileset_palette)
+
+        # draw highlight around new tile
+        x_off = (new_tile_num  % TSET_SPAN) * TSET_OFFSET
+        y_off = (new_tile_num // TSET_SPAN) * TSET_OFFSET
+        self.tileset_pixmap.create_rectangle(
+            x_off, y_off,
+            x_off+TSET_OFFSET-1, y_off+TSET_OFFSET-1,
+            fill='', outline='#00FFFF')
+
+    def _tileset_mousewheel(self, event):
+        if event.num==4: # Up
+            self.tileset_pixmap.yview_scroll(-1, "units")
+        else: # Down
+            self.tileset_pixmap.yview_scroll(1, "units")
+
+    # Tile edit area callbacks
+
+    def _edit_leftclick(self, event):
+        # Figure out discrete row and column of pixel
+        col = event.x // EDITSCALE
+        row = event.y // EDITSCALE
+
+        # Bounds check row and column
+        col = 0 if col < 0 else TILESIZE-1 if col > (TILESIZE-1) else col
+        row = 0 if row < 0 else TILESIZE-1 if row > (TILESIZE-1) else row
+
+        self.event_map.draw_tile_pixel_fg(col, row)
+
+    def _edit_rightclick(self, event):
+        # Figure out discrete row and column of pixel
+        col = event.x // EDITSCALE
+        row = event.y // EDITSCALE
+
+        # Bounds check row and column
+        col = 0 if col < 0 else TILESIZE-1 if col > (TILESIZE-1) else col
+        row = 0 if row < 0 else TILESIZE-1 if row > (TILESIZE-1) else row
+
+        self.event_map.draw_tile_pixel_bg(col, row)
+
+
+    def update_tile_pixel(self, tlayer, tile_num, pal, tile_color, col, row):
+        # Update edit pixmap
+        # Given the col,row coordinates, and EDITSCALE of the pixels in the tile,
+        # and the number of pixels the drawing area is across, draw a box at
+        # the tile with the currently selected color
+        color = nes_palette[pal[tile_color]]
+        self.edit_pixmap.create_rectangle(col*EDITSCALE, row*EDITSCALE,
+                                          (col+1)*EDITSCALE-1, (row+1)*EDITSCALE-1,
+                                          fill=color, outline=color)
+
+        # Update tileset pixmap
+        # Same as above, but does it for the tileset window
+        color = tileset_palette[tile_color]
+        tile_x = col*TSET_SCALE+(tile_num % TSET_SPAN)*TSET_OFFSET
+        tile_y = row*TSET_SCALE+(tile_num // TSET_SPAN)*TSET_OFFSET
+        self.tileset_pixmap.create_rectangle(tile_x, tile_y,
+                                             tile_x+TSET_SCALE-1, tile_y+TSET_SCALE-1,
+                                             fill=color, outline=color)
+
+        # Updates all the tiles laid on the tile layer of the same kind
+        t_info = tlayer.tile_layout(tile_num)
+        for t_layout in t_info:
+            color =  nes_palette[t_layout.palette[tile_color]]
+
+            lay_x = col * TLAYOUT_SCALE + t_layout.x * TLAYOUT_OFFSET
+            lay_y = row * TLAYOUT_SCALE + t_layout.y * TLAYOUT_OFFSET
+
+            self.tlayout_pixmap.create_rectangle(
+                lay_x, lay_y,lay_x+TLAYOUT_SCALE-1, lay_y+TLAYOUT_SCALE-1,
+                fill=color, outline=color)
+
+    # Tile edit color selection callbacks
+
+    def _colors_leftclick(self, event):
+        i = box_number(event.x, event.y, COLORS_BOXSIZE, COLORS_SPAN)
+        self.event_map.update_current_col(i)
+
+    def _colors_rightclick(self, event):
+        col = box_number( event.x, event.y, COLORS_BOXSIZE, COLORS_SPAN)
+        self._create_palette_win(col)
+
+
+    # Palette selection window functions and callbacks
+
+    def _create_palette_win(self, col):
+        """
+        Create window for selecting color from NES palette
+        """
+        palette_win = tk.Toplevel(self.root)
+        palette_win.wm_title('Color Chooser #' + str(col))
+        palette_win.resizable(False, False)
+
+        palette_pick = tk.Canvas(palette_win, width=256, height=64, bg='#FFFFFF')
+        palette_pick.grid(column=0, row=0, sticky="n")
+
+        palette_pick_action = lambda event : self._palette_click( event, col )
+        palette_pick.bind("<Button-1>", palette_pick_action)
+
+        palette_close = ttk.Button(palette_win, text = 'Close', command = palette_win.destroy)
+        palette_close.grid(column=0, row=1, sticky="s")
+
+        # Draws the colors blocks for selecting from the NES palette
+        for i, color in enumerate(nes_palette):
+            x = (i  % PALETTE_SPAN) * PALETTE_BOXSIZE
+            y = (i // PALETTE_SPAN) * PALETTE_BOXSIZE
+            palette_pick.create_rectangle(x,y,
+                                          x+PALETTE_BOXSIZE-1,y+PALETTE_BOXSIZE-1,
+                                          fill=color, outline=color)
+
+    def _palette_click(self, event, col):
+        """
+        Handle change in palette changing displayed colors to reflect it
+        """
+        new_color = box_number(event.x, event.y, PALETTE_BOXSIZE, PALETTE_SPAN)
+
+        self.event_map.palette_update(col, new_color)
+
+    # Tile layer area callbacks
+
+    def _tlayout_click(self, event):
+        # Figure out discrete row and column of pixel
+        col = event.x // TLAYOUT_OFFSET
+        row = event.y // TLAYOUT_OFFSET
+
+        # Bounds check row and column
+        col = 0 if col < 0 else (TLAYOUT_XSPAN-1) if col > (TLAYOUT_XSPAN-1) else col
+        row = 0 if row < 0 else (TLAYOUT_YSPAN-1) if row > (TLAYOUT_YSPAN-1) else row
+
+        self.event_map.lay_tile(col, row)
+
+    def lay_tile(self, col, row, tile: 'Tile', pal: list[int]):
+        x_off = col * TLAYOUT_OFFSET
+        y_off = row * TLAYOUT_OFFSET
+
+        # create draw callback to draw tile to tlayout_pixmap
+        def _draw( start_x, start_y, stop_x, stop_y, color ):
+            self.tlayout_pixmap.create_rectangle(
+                x_off+start_x*TLAYOUT_SCALE,  y_off+start_y*TLAYOUT_SCALE,
+                x_off+stop_x*TLAYOUT_SCALE-1, y_off+stop_y*TLAYOUT_SCALE-1,
+                fill=color, outline=color)
+
+        tile.draw( _draw, [nes_palette[i] for i in pal] )
+
+    def tileset_redraw_all(self, tile_set: 'TileSet', current_tile_num: int):
+        # Clear out draw window (done in configure before, but trying to avoid
+        # having my graphics drawn over.
+        self.tileset_pixmap.config(scrollregion=(0,0,TSET_WIDTH,
+                                                 (TSET_OFFSET * len(tile_set)) // TSET_SPAN) )
+        self.tileset_pixmap.delete('all')
+
+        x = 0
+        y = 0
+        for i, tile in enumerate(tile_set):
+            # create draw callback to draw tile to tileset_pixmap
+            def _draw( start_x, start_y, stop_x, stop_y, color ):
+                self.tileset_pixmap.create_rectangle(
+                    x+start_x*TSET_SCALE, y+start_y*TSET_SCALE,
+                    x+stop_x*TSET_SCALE-1, y+stop_y*TSET_SCALE-1,
+                    fill=color, outline=color)
+
+            tile.draw( _draw, tileset_palette)
+
+            if i == current_tile_num:
+                self.tileset_pixmap.create_rectangle(x, y, x+TSET_OFFSET-1, y+TSET_OFFSET-1,
+                                             fill='', outline='#00FFFF')
+            x += TSET_OFFSET
+            if x >= TSET_WIDTH:
+                y += TSET_OFFSET
+                x = 0
+
+    def edit_redraw_all(self, current_tile_num: int, tile: 'Tile', pal: list):
+        self.edit_win.wm_title('Tile #' + str(current_tile_num))
+        self.edit_pixmap.delete('all')
+
+        # create draw callback to draw tile to edit_pixmap
+        def _draw( start_x, start_y, stop_x, stop_y, color ):
+            self.edit_pixmap.create_rectangle(
+                start_x*EDITSCALE, start_y*EDITSCALE,
+                stop_x*EDITSCALE-1, stop_y*EDITSCALE-1,
+                fill=color, outline=color)
+
+        tile.draw( _draw, [nes_palette[i] for i in pal] )
+
+    def colors_redraw_all(self, pal: list, selected_col: int):
+        self.colors_pixmap.delete('all')
+        for i, col_idx in enumerate(pal):
+            color = nes_palette[col_idx]
+            x = i * COLORS_BOXSIZE
+            if i == selected_col:
+                self.colors_pixmap.create_rectangle(x,0,
+                                                    x+COLORS_BOXSIZE-1, COLORS_BOXSIZE-1,
+                                                    fill=color, outline="#00FFFF")
+            else:
+                self.colors_pixmap.create_rectangle(x,0,
+                                                    x+COLORS_BOXSIZE-1, COLORS_BOXSIZE-1,
+                                                    fill=color, outline=color)
+
+    def tlayout_redraw_all(self, tile_set: 'TileSet', tlayout: 'TileLayerData'):
+        self.tlayout_pixmap.delete('all')
+        x_off = 0
+        y_off = 0
+
+        # create draw callback to draw tile to tlayout_pixmap
+        def _draw( start_x, start_y, stop_x, stop_y, color ):
+            self.tlayout_pixmap.create_rectangle(
+                x_off+start_x*TLAYOUT_SCALE,  y_off+start_y*TLAYOUT_SCALE,
+                x_off+stop_x*TLAYOUT_SCALE-1, y_off+stop_y*TLAYOUT_SCALE-1,
+                fill=color, outline=color)
+
+        for x in range(TLAYOUT_XSPAN):
+            for y in range(TLAYOUT_YSPAN):
+                tle = tlayout.tile_at_xy(x,y)
+
+                tile_set[tle.tile].draw(_draw, [nes_palette[i] for i in tle.palette])
+                y_off += TLAYOUT_OFFSET
+            x_off += TLAYOUT_OFFSET
+            y_off = 0
+
+    @staticmethod
+    def showwarning( warning: str ):
+        messagebox.showwarning("Warning", warning)
+
+    @staticmethod
+    def showerror( error: str ):
+        messagebox.showerror("Error", error)
+
+    @staticmethod
+    def askyesnocancel( question: str ) -> bool:
+        return messagebox.askyesnocancel("Question", question)
+
+    @staticmethod
+    def askconfigsettings( config: dict, callback: 'Callable' ):
+        msg = "CHR ROM Size (Number of 8K blocks)"
+        result = simpledialog.askinteger('Configuration', msg,
+           initialvalue=config["crom_size"])
+
+        if not result:
+            return
+        callback({"crom_size": result})
+
+
+
+class NesTileEdit:
+    """
+    Class for the NES Tile Editor program
+
+    """
+
+    def __init__(self, filename=None):
+        # Initialize class variables
+        self._tile_set = TileSet(CROM_INC, filename)
+        self._tlayer = TileLayerData()
+        self._ui = NesTileEditTk(self)
+
+        self.current_pal = list(default_palette)
+        # Index into self.current_pal, not nes_palette
+        self.current_col = 1
+
+        self.current_tile_num = 0
+
+        # Widget display
+        self._ui.tileset_redraw_all(self._tile_set, self.current_tile_num)
+        self._ui.edit_redraw_all(self.current_tile_num,
+                                self._tile_set[self.current_tile_num],
+                                self.current_pal)
+        self._ui.colors_redraw_all(self.current_pal, self.current_col)
+        self._ui.tlayout_redraw_all(self._tile_set, self._tlayer)
+
+        print(self._tile_set)
+
+
+    # Menubar callbacks
+
+    def _check_to_save_tileset(self ):
+        if self._tile_set.modified:
+            result = self._ui.askyesnocancel("Save current file?")
+
+            if result is None:
+                # Cancel
+                return False
+            if not result:
+                # No
+                return True
+            # Yes
+            if not self.save_as_tileset():
+                self._ui.showerror("Unable to save tile set!")
+                return False
+        return True
+
+    def new_tileset(self):
+        if not self._check_to_save_tileset():
+            return False
+
+        self._tile_set.reset()
+        self._tlayer.reset()
+        self.current_pal = list(default_palette)
+        # Index into self.current_pal, not nes_palette
+        self.current_col = 1
+        self.current_tile_num = 0
+
+        # Widget display
+        self._ui.tileset_redraw_all(self._tile_set, self.current_tile_num)
+        self._ui.edit_redraw_all(self.current_tile_num,
+                                self._tile_set[self.current_tile_num],
+                                self.current_pal)
+        self._ui.colors_redraw_all(self.current_pal, self.current_col)
+        self._ui.tlayout_redraw_all(self._tile_set, self._tlayer)
+        return True
+
+
+    def open_tileset(self):
+        if not self._check_to_save_tileset():
+            return False
+
+        filename = filedialog.askopenfilename(filetypes=nes_filetypes)
+        if not filename:
+            return False
+
+        self._tile_set.do_open( filename )
+
+        self._tlayer.reset()
+
+        # redraw the windows
+        self.set_current_tile_num(0)
+        self._ui.tileset_redraw_all(self._tile_set, self.current_tile_num)
+        self._ui.edit_redraw_all(self.current_tile_num,
+                                self._tile_set[self.current_tile_num],
+                                self.current_pal)
+        self._ui.tlayout_redraw_all(self._tile_set, self._tlayer)
+        return True
+
+
+    def close_tileset(self):
+        """
+        What does it even mean to Close a tile set?
+        Is this just quit
+        """
+        return self.new_tileset()
+
+
+    def save_as_tileset(self):
+        filename = filedialog.asksaveasfilename(filetypes=nes_filetypes,
+                                                initialfile=self._tile_set.filename )
+        if not filename:
             return
 
-        not_found = True
+        self._tile_set.do_save( filename )
 
-        for i in range(len(t_info)):
-            if t_info[i][0:2] == [x_box, y_box]:
-                self.tile_layout[self.current_tile_num][i] = [x_box, y_box, 
-                    cur_pal]
-                not_found = False
-        
-        if not_found:
-            self.tile_layout[self.current_tile_num].append([x_box, y_box, 
-                    cur_pal])
-            
+    def save_tileset(self):
+        if not self._tile_set.filename:
+            # do save as if there's no filename for now
+            self.save_as_tileset()
+        else:
+            self._tile_set.do_save(self._tile_set.filename)
+
+    def config_tileset(self):
+        """
+        Gets configuration from the user
+        Currently only supports changing ROM size
+        needs more settings
+        """
+        #Open Config dialog
+        self._ui.askconfigsettings({"crom_size": 1}, self.process_config)
+
+        #TKOTZ config: CROM Size
+        #TKOTZ config: TileSet Scale
+        #TKOTZ config: TileSet Palette
+        #TKOTZ config: Edit Scale
+        #TKOTZ config: Tile Layer Scale
+        #TKOTZ config: Tile Layer palette mode
+
+    def process_config(self, config_db: dict ):
+        # Read new Config
+        chr_rom_cnt = config_db["crom_size"]
+
+        # Update Settings
+        self._tile_set.resize( chr_rom_cnt * CROM_INC // BYTES_PER_TILE )
+
+
+        if self.current_tile_num > len(self._tile_set):
+            self.current_tile_num=0
+
+        # Redraw the windows
+        self._ui.tileset_redraw_all(self._tile_set, self.current_tile_num)
+        self._ui.edit_redraw_all(self.current_tile_num,
+                                self._tile_set[self.current_tile_num],
+                                self.current_pal)
+        self._ui.colors_redraw_all(self.current_pal, self.current_col)
+        self._ui.tlayout_redraw_all(self._tile_set, self._tlayer)
+
+    def palette_update(self, palette_idx, new_nes_color):
+        # Current palette info updated when old info no longer needed
+        self.current_pal[palette_idx] = new_nes_color
+
+        # Redraw the colors bar to show updated palette selection
+        self._ui.colors_redraw_all(self.current_pal, self.current_col)
+
+        # Redraw the edit window with updated palette
+        self._ui.edit_redraw_all(self.current_tile_num,
+                                self._tile_set[self.current_tile_num],
+                                self.current_pal)
+
+    def update_current_col(self, new_col):
+        if new_col != self.current_col:
+            self.current_col = new_col
+            # Redraw the colors bar to show updated palette selection
+            self._ui.colors_redraw_all(self.current_pal, self.current_col)
+
+    # Other cross domain functions
+
+    def _draw_tile_pixel( self, col, row, tile_color):
+        """
+        Modifies a pixel in the tile editor
+        reflecting that change in the Tile set and Taile Layout
+        """
+        self._tile_set.update_tile_pixel(self.current_tile_num,col,row,tile_color)
+        self._ui.update_tile_pixel(self._tlayer, self.current_tile_num,
+                                   self.current_pal, tile_color,
+                                   col, row)
+
+    def draw_tile_pixel_fg( self, col, row):
+        self._draw_tile_pixel(col, row, self.current_col)
+
+    def draw_tile_pixel_bg( self, col, row):
+        self._draw_tile_pixel(col, row, 0)
+
+    def lay_tile(self, col, row):
+        """
+        Draw the current tile at the block in location col, row
+        """
+        self._tlayer.lay_tile( col, row, self.current_tile_num, self.current_pal)
+        self._ui.lay_tile( col, row, self._tile_set[self.current_tile_num], self.current_pal)
+
+    def set_current_tile_num(self, idx: int ):
+        if idx != self.current_tile_num and idx < len(self._tile_set):
+            self._ui.tileset_updatehighlight(self._tile_set, self.current_tile_num, idx)
+
+            self.current_tile_num = idx
+
+            # Update edit box with new selected tile
+            self._ui.edit_redraw_all(self.current_tile_num,
+                                    self._tile_set[self.current_tile_num],
+                                    self.current_pal)
+
+    # Generic callbacks
+
+    def destroy(self):
+        if not self._check_to_save_tileset():
+            return False
+        self._ui.destroy()
+        return True
 
     def main(self):
-        gtk.main()
-
-
+        self._ui.mainloop()
 
 # Main program loop
-
 if __name__ == "__main__":
-    nes_tile_edit = NesTileEdit()
-    nes_tile_edit.main()
+    if len(sys.argv) > 1:
+        if '--test' in sys.argv:
+            unittest()
+            sys.exit(0)
+        elif len(sys.argv) > 2 or '-h' in sys.argv:
+            print("Usage: {} [FILE]".format(sys.argv[0]))
+            print("\tFILE - sets name of the FILE to open.")
+            sys.exit(0)
+        else:
+            nes_tile_edit = NesTileEdit(sys.argv[1])
+    else:
+        nes_tile_edit = NesTileEdit(sys.argv[1])
 
-                        
+    nes_tile_edit.main()
