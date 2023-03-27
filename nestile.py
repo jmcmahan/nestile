@@ -301,6 +301,14 @@ class TileSet:
         self.modified = True
         self.tile_data[idx].set(x,y,color)
 
+    def resize(self, new_size):
+        # resize tile data elements
+        if len(self.tile_data)>new_size:
+            self.tile_data = self.tile_data[:new_size]
+        else:
+            for _ in range(len(self.tile_data),new_size):
+                self.tile_data.append(Tile())
+
 
     def __getitem__(self, key):
         return self.tile_data[key]
@@ -422,7 +430,7 @@ class NesTileEditTk:
         self.tileset_pixmap.bind("<Button-4>", self._tileset_mousewheel)
         self.tileset_pixmap.bind("<Button-5>", self._tileset_mousewheel)
 
-        self.edit_win.wm_title('Tile #') #TKOTZ + str(self.current_tile_num))
+        self.edit_win.wm_title('Tile #')
         self.edit_win.geometry(str(EDIT_WIDTH+1)+'x'+str(EDIT_HEIGHT+COLORS_HEIGHT+2))
         self.edit_win.resizable(False, False)
         self.edit_win.protocol("WM_DELETE_WINDOW", event_map.destroy)
@@ -734,6 +742,28 @@ class NesTileEditTk:
             x_off += TLAYOUT_OFFSET
             y_off = 0
 
+    @staticmethod
+    def showwarning( warning: str ):
+        messagebox.showwarning("Warning", warning)
+
+    @staticmethod
+    def showerror( error: str ):
+        messagebox.showerror("Error", error)
+
+    @staticmethod
+    def askyesnocancel( question: str ) -> bool:
+        return messagebox.askyesnocancel("Question", question)
+
+    @staticmethod
+    def askconfigsettings( config: dict, callback: 'Callable' ):
+        msg = "CHR ROM Size (Number of 8K blocks)"
+        result = simpledialog.askinteger('Configuration', msg,
+           initialvalue=config["crom_size"])
+
+        if not result:
+            return
+        callback({"crom_size": result})
+
 
 
 class NesTileEdit:
@@ -765,31 +795,11 @@ class NesTileEdit:
         print(self._tile_set)
 
 
-    def set_current_tile_num(self, idx: int ):
-        if idx != self.current_tile_num and idx < len(self._tile_set):
-            self._ui.tileset_updatehighlight(self._tile_set, self.current_tile_num, idx)
-
-            self.current_tile_num = idx
-
-            # Update edit box with new selected tile
-            self._ui.edit_redraw_all(self.current_tile_num,
-                                    self._tile_set[self.current_tile_num],
-                                    self.current_pal)
-
-
-    # Generic callbacks
-
-    def destroy(self):
-        if not self._check_to_save_tileset():
-            return False
-        self._ui.destroy()
-        return True
-
     # Menubar callbacks
 
     def _check_to_save_tileset(self ):
         if self._tile_set.modified:
-            result = messagebox.askyesnocancel("Question", "Save current file?")
+            result = self._ui.askyesnocancel("Save current file?")
 
             if result is None:
                 # Cancel
@@ -799,7 +809,7 @@ class NesTileEdit:
                 return True
             # Yes
             if not self.save_as_tileset():
-                messagebox.showerror("Error", "Unable to save tile set!")
+                self._ui.showerror("Unable to save tile set!")
                 return False
         return True
 
@@ -875,44 +885,34 @@ class NesTileEdit:
         Currently only supports changing ROM size
         needs more settings
         """
-        return
-        #    if self.file_format != 'raw':
-        #        msg = "Only supported in raw mode.\nUse File->New\nto reset raw mode"
-        #        messagebox.showwarning("Warning", msg)
-        #        return False
-        #
-        #    msg = "CHR ROM Size (Number of 8K blocks)"
-        #    result = simpledialog.askinteger('Configuration', msg,
-        #                                     initialvalue=(self.chr_rom_size//CROM_INC))
-        #    if not result:
-        #        return False
-        #    try:
-        #        self.chr_rom_size = result * CROM_INC
-        #
-        #        # resize tile data elements
-        #        new_size = self.chr_rom_size // BYTES_PER_TILE
-        #        if len(self.tile_data)>new_size:
-        #            self.tile_layout = self.tile_layout[:new_size]
-        #            self.tile_data = self.tile_data[:new_size]
-        #            if self.current_tile_num >= new_size:
-        #                self.set_current_tile_num(0)
-        #                self._edit_redraw_all()
-        #        else:
-        #            for _ in range(len(self.tile_data),new_size):
-        #                self.tile_layout.append(None)
-        #                self.tile_data.append(None)
-        #
-        #        # update display
-        #        self._tileset_redraw_all()
-        #        return True
-        #    except ValueError:
-        #        messagebox.showerror("Error", "Invalid size specified.")
-        #    except Exception as err:
-        #        messagebox.showerror("Error", f"Unexpected {err=}, {type(err)=}")
-        #        raise
-        #    return False
+        #Open Config dialog
+        self._ui.askconfigsettings({"crom_size": 1}, self.process_config)
+
+        #TKOTZ config: CROM Size
+        #TKOTZ config: TileSet Scale
+        #TKOTZ config: TileSet Palette
+        #TKOTZ config: Edit Scale
+        #TKOTZ config: Tile Layer Scale
+        #TKOTZ config: Tile Layer palette mode
+
+    def process_config(self, config_db: dict ):
+        # Read new Config
+        chr_rom_cnt = config_db["crom_size"]
+
+        # Update Settings
+        self._tile_set.resize( chr_rom_cnt * CROM_INC // BYTES_PER_TILE )
 
 
+        if self.current_tile_num > len(self._tile_set):
+            self.current_tile_num=0
+
+        # Redraw the windows
+        self._ui.tileset_redraw_all(self._tile_set, self.current_tile_num)
+        self._ui.edit_redraw_all(self.current_tile_num,
+                                self._tile_set[self.current_tile_num],
+                                self.current_pal)
+        self._ui.colors_redraw_all(self.current_pal, self.current_col)
+        self._ui.tlayout_redraw_all(self._tile_set, self._tlayer)
 
     def palette_update(self, palette_idx, new_nes_color):
         # Current palette info updated when old info no longer needed
@@ -957,6 +957,24 @@ class NesTileEdit:
         self._tlayer.lay_tile( col, row, self.current_tile_num, self.current_pal)
         self._ui.lay_tile( col, row, self._tile_set[self.current_tile_num], self.current_pal)
 
+    def set_current_tile_num(self, idx: int ):
+        if idx != self.current_tile_num and idx < len(self._tile_set):
+            self._ui.tileset_updatehighlight(self._tile_set, self.current_tile_num, idx)
+
+            self.current_tile_num = idx
+
+            # Update edit box with new selected tile
+            self._ui.edit_redraw_all(self.current_tile_num,
+                                    self._tile_set[self.current_tile_num],
+                                    self.current_pal)
+
+    # Generic callbacks
+
+    def destroy(self):
+        if not self._check_to_save_tileset():
+            return False
+        self._ui.destroy()
+        return True
 
     def main(self):
         self._ui.mainloop()
