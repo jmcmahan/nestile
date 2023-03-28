@@ -181,9 +181,10 @@ Any updates made should be posted there.
 Thanks to all the folks who worked on reverse-engineering the NES and creating
 freely available documentation for it. Thanks also to John Finlay for his
 PyGTK documents, which made it pretty easy to pick this library up and do
-something with it.
+something with it. Also thanks to Ted Kotz for adding tkinter support. 
 
-Author : J. A. McMahan Jr.
+Original Author : J. A. McMahan Jr.
+tkinter Port : Ted Kotz
 Version: See changes.txt for details on changes in different versions
 License: See license.txt for details, but it's a modified BSD license. By
          using this software, you agree to abide by the license.
