@@ -132,7 +132,7 @@ reference.
 
 - [x] Add selection indicators for currently selected tiles and colors
 
-- [ ] Split the view into a class separate from the tile data model
+- [x] Split the view into a class separate from the tile data model
 
 - [ ] Update README with new requirements and new screen shot
 
