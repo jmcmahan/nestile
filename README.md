@@ -21,25 +21,14 @@ files containing raw NES graphics data, or to directly edit files containing
 either raw NES graphics data or iNES formatted ROMs that store graphics in
 CHR-ROM.
 
-To use the program, you will need to have Python (version >= 2.3) installed on
-your machine as well as PyGTK (version >= 2.0). For reference, my machine is
-a Debian system with Python version 2.3.5 and PyGTK 2.0. Actually, the
-requirements I gave are guesses, since I don't have any other versions to
-test, so you're welcome to try running it on earlier versions. If you do
-and it works, let me know.
+To use the program, you will need to have Python installed on
+your machine.
 
-Also, I'm not totally sure, but you might run into trouble running the program
-if you're using a color resolution other than 16-bit. I get the impression from
-some of the hackish, ugly things I did
-in the code, there may be a problem with that.
-
-This is alpha software, very much so. It does what I need,
-though, so it might do what you need, too.
 
 
 2. Using Nestile
 
-Using Nestile is somewhat straight forward. Just run the file "nestile" and
+Run the file "nestile" with the file you want to open as an argument and
 the GUI will pop up. The long, skinny window with the File menu on it is the
 Tile Set window, the smallest window with the colors on the bottom is the Tile
 Editor window, and the other window is the Tile Layer window. When starting
@@ -139,14 +128,6 @@ reference.
   prevent the aforementioned bug where you could accidentally overwrite a color
   by selecting one similar to it.
 
-- [ ] The program seems to crash on my system when loading very large files. This
-  might be system dependent, not really sure. Probably due to the unintelligent
-  way I go about loading files, and doesn't affect my needs, so this probably
-  will not get fixed.
-
-- [ ] There are probably plenty of other bugs. Let me know about them and I may end
-  up trying to fix them, if you really want to use the program.
-
 - [x] Add support for for left click and right click colors
 
 - [x] Add selection indicators for currently selected tiles and colors
@@ -181,10 +162,11 @@ Any updates made should be posted there.
 Thanks to all the folks who worked on reverse-engineering the NES and creating
 freely available documentation for it. Thanks also to John Finlay for his
 PyGTK documents, which made it pretty easy to pick this library up and do
-something with it. Also thanks to Ted Kotz for adding tkinter support. 
+something with it. Also thanks to Ted Kotz for overhauling the code to run on
+Python 3 and use Tkinter rather than PyGTK. 
 
 Original Author : J. A. McMahan Jr.
-tkinter Port : Ted Kotz
+Major Update to Python 3 / Tkinter: Ted Kotz
 Version: See changes.txt for details on changes in different versions
 License: See license.txt for details, but it's a modified BSD license. By
          using this software, you agree to abide by the license.
