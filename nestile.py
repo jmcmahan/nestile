@@ -196,7 +196,7 @@ class NesTileEditTk:
                                         underline=6, accelerator="Shift+Right")
         self.root.bind_all("<Shift-Right>", lambda x: event_map.tile_shift_right())
         main_tile_menu.add_command(label="Invert Colors", command=event_map.tile_invert,
-                                        underline=0, accelerator="Shift+~")
+                                        underline=0, accelerator="~")
         self.root.bind_all("~", lambda x: event_map.tile_invert())
         main_menubar.add_cascade(label="Tile", menu=main_tile_menu, underline=0)
 
@@ -633,19 +633,23 @@ class Tile:
 
     def shift_up(self):
         """Shifts tile up 1 pixel"""
-        self._pixels = self._pixels[1:] + [self._pixels[0]]
+        if self._pixels is not None:
+            self._pixels = self._pixels[1:] + [self._pixels[0]]
 
     def shift_down(self):
         """Shifts tile down 1 pixel"""
-        self._pixels = [self._pixels[-1]] + self._pixels[:-1]
+        if self._pixels is not None:
+            self._pixels = [self._pixels[-1]] + self._pixels[:-1]
 
     def shift_left(self):
         """Shifts tile left 1 pixel"""
-        self._pixels = [ row[1:]+[row[0]] for row in self._pixels]
+        if self._pixels is not None:
+            self._pixels = [ row[1:]+[row[0]] for row in self._pixels]
 
     def shift_right(self):
         """Shifts tile right 1 pixel"""
-        self._pixels = [ [row[-1]]+row[:-1] for row in self._pixels]
+        if self._pixels is not None:
+            self._pixels = [ [row[-1]]+row[:-1] for row in self._pixels]
 
     def invert(self):
         """Inverts colors of pixels in tile"""
@@ -1004,6 +1008,7 @@ class NesTileEdit:
     def tile_cut(self):
         """Cuts current tile to clipboard"""
         self.tile_copy()
+        self._tile_set.modified=True
         self._tile_set[self.current_tile_num].frombytes(b"\0" * BYTES_PER_TILE)
         self._ui.update_tile(self._tlayer, self._tile_set,
                              self.current_tile_num, self.current_pal)
@@ -1016,6 +1021,7 @@ class NesTileEdit:
         """Pastes clipboard to current tile"""
         try:
             self._tile_set[self.current_tile_num].from_str(self._ui.clipboard_get() )
+            self._tile_set.modified=True
         except Exception as err:
             print(err)
             traceback.print_exc()
@@ -1025,30 +1031,35 @@ class NesTileEdit:
 
     def tile_shift_up(self):
         """Shifts current tile up 1 pixel"""
+        self._tile_set.modified=True
         self._tile_set[self.current_tile_num].shift_up()
         self._ui.update_tile(self._tlayer, self._tile_set,
                              self.current_tile_num, self.current_pal)
 
     def tile_shift_down(self):
         """Shifts current tile down 1 pixel"""
+        self._tile_set.modified=True
         self._tile_set[self.current_tile_num].shift_down()
         self._ui.update_tile(self._tlayer, self._tile_set,
                              self.current_tile_num, self.current_pal)
 
     def tile_shift_left(self):
         """Shifts current tile left 1 pixel"""
+        self._tile_set.modified=True
         self._tile_set[self.current_tile_num].shift_left()
         self._ui.update_tile(self._tlayer, self._tile_set,
                              self.current_tile_num, self.current_pal)
 
     def tile_shift_right(self):
         """Shifts current tile right 1 pixel"""
+        self._tile_set.modified=True
         self._tile_set[self.current_tile_num].shift_right()
         self._ui.update_tile(self._tlayer, self._tile_set,
                              self.current_tile_num, self.current_pal)
 
     def tile_invert(self):
         """Inverts colors of pixels in current tile"""
+        self._tile_set.modified=True
         self._tile_set[self.current_tile_num].invert()
         self._ui.update_tile(self._tlayer, self._tile_set,
                              self.current_tile_num, self.current_pal)
