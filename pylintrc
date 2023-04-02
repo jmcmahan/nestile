@@ -5,3 +5,16 @@
 # good-names=i,j,k,ex,Run,_
 good-names=i,j,k,ex,Run,_,x,y
 
+[MESSAGES CONTROL]
+
+# Enable the message, report, category or checker with the given id(s). You can
+# either give multiple identifier separated by comma (,) or put this option
+# multiple time.
+#enable=
+
+# Disable the message, report, category or checker with the given id(s). You
+# can either give multiple identifier separated by comma (,) or put this option
+# multiple time (only on the command line, not in the configuration file where
+# it should appear only once).
+#disable=
+disable=W0703
