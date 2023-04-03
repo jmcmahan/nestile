@@ -198,6 +198,18 @@ class NesTileEditTk:
         main_tile_menu.add_command(label="Invert Colors", command=event_map.tile_invert,
                                         underline=0, accelerator="~")
         self.root.bind_all("~", lambda x: event_map.tile_invert())
+        main_tile_menu.add_command(label="Flip Horizontal", command=event_map.tile_hflip,
+                                        underline=0, accelerator="!")
+        self.root.bind_all("!", lambda x: event_map.tile_hflip())
+        main_tile_menu.add_command(label="Flip Vertical", command=event_map.tile_vflip,
+                                        underline=0, accelerator="@")
+        self.root.bind_all("@", lambda x: event_map.tile_vflip())
+        main_tile_menu.add_command(label="Rotate CCW", command=event_map.tile_ccwrotate,
+                                        underline=0, accelerator="#")
+        self.root.bind_all("#", lambda x: event_map.tile_ccwrotate())
+        main_tile_menu.add_command(label="Rotate CW", command=event_map.tile_cwrotate,
+                                        underline=0, accelerator="$")
+        self.root.bind_all("$", lambda x: event_map.tile_cwrotate())
         main_menubar.add_cascade(label="Tile", menu=main_tile_menu, underline=0)
 
     def destroy(self):
@@ -658,8 +670,28 @@ class Tile:
         else:
             self._pixels = [ [ (3-val) for val in row] for row in self._pixels ]
 
+    def vflip(self):
+        """Flips tile vertically"""
+        if self._pixels is not None:
+            self._pixels.reverse()
 
+    def hflip(self):
+        """Flips tile horizontally"""
+        if self._pixels is not None:
+            for row in self._pixels:
+                row.reverse()
 
+    def cwrotate(self):
+        """Rotates tile clockwise"""
+        if self._pixels is not None:
+            self._pixels = [[ self._pixels[y][x] for y in range(TILESIZE-1,-1,-1)]
+                            for x in range(TILESIZE)]
+
+    def ccwrotate(self):
+        """Rotates tile counter-clockwise"""
+        if self._pixels is not None:
+            self._pixels = [[ self._pixels[y][x] for y in range(TILESIZE)]
+                            for x in range(TILESIZE-1,-1,-1)]
 
 class TileSet:
     """Class holding the tile pixel data for the entire tile set.
@@ -669,7 +701,6 @@ class TileSet:
         if filename is not None:
             if os.path.isfile(filename):
                 self.do_open( filename )
-                print(self)
                 return
             self.filename = filename
         else:
@@ -1061,6 +1092,34 @@ class NesTileEdit:
         """Inverts colors of pixels in current tile"""
         self._tile_set.modified=True
         self._tile_set[self.current_tile_num].invert()
+        self._ui.update_tile(self._tlayer, self._tile_set,
+                             self.current_tile_num, self.current_pal)
+
+    def tile_hflip(self):
+        """Flips current tile horizontally"""
+        self._tile_set.modified=True
+        self._tile_set[self.current_tile_num].hflip()
+        self._ui.update_tile(self._tlayer, self._tile_set,
+                             self.current_tile_num, self.current_pal)
+
+    def tile_vflip(self):
+        """Flips current tile vertically"""
+        self._tile_set.modified=True
+        self._tile_set[self.current_tile_num].vflip()
+        self._ui.update_tile(self._tlayer, self._tile_set,
+                             self.current_tile_num, self.current_pal)
+
+    def tile_cwrotate(self):
+        """Rotates current tile clockwise"""
+        self._tile_set.modified=True
+        self._tile_set[self.current_tile_num].cwrotate()
+        self._ui.update_tile(self._tlayer, self._tile_set,
+                             self.current_tile_num, self.current_pal)
+
+    def tile_ccwrotate(self):
+        """Rotates current tile counter-clockwise"""
+        self._tile_set.modified=True
+        self._tile_set[self.current_tile_num].ccwrotate()
         self._ui.update_tile(self._tlayer, self._tile_set,
                              self.current_tile_num, self.current_pal)
 
