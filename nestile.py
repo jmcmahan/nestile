@@ -554,16 +554,11 @@ class TileSet:
         else:
             self.filename = ''
         self.chr_rom_size = rom_size
-        self.file_format = 'raw'
-        self.modified = False
-        # Holds iNES PRG and header data when opening iNES ROM's
-        self.ines_data = None
-        # Holds the tile bitmaps as 'Tile's
-        self.tile_data = [Tile() for _ in range(self.chr_rom_size//BYTES_PER_TILE)]
+        self.reset()
 
-    def reset(self):
+    def reset(self, filename=''):
         """Reinitialize class variables, except data size is kept."""
-        self.filename = ''
+        self.filename = filename
         self.file_format = 'raw'
         self.modified = False
         # Holds iNES PRG and header data when opening iNES ROM's
@@ -646,14 +641,11 @@ class TileLayout(namedtuple('TileLayout', ['x', 'y', 'palette'])):
     """Location and palette of one tile"""
     __slots__ = ()
 
+
 class TileLayerData:
     """Class holding the Tile Layout data in the Tile Layer window"""
     def __init__(self):
-        self.filename = ''
-        self.modified = False
-        # Holds information for drawing tiles on the tile layer
-        # Initialize tile map
-        self._tile_at_xy = [ TLAYOUT_YSPAN*[None] for _ in range(TLAYOUT_XSPAN) ]
+        self.reset()
 
     def reset(self):
         """Reinitialize class variables"""
@@ -661,7 +653,7 @@ class TileLayerData:
         self.modified = False
         # Holds information for drawing tiles on the tile layer
         # Initialize tile map
-        self._tile_at_xy = [ TLAYOUT_YSPAN*[None] for _ in range(TLAYOUT_XSPAN) ]
+        self._tile_at_xy = [ TLAYOUT_YSPAN * [None] for _ in range(TLAYOUT_XSPAN) ]
 
     def tile_layout(self, tile_num: int) -> list('TileLayout'):
         """ Returns a list of tuples conataininf the x,y positions and
@@ -670,7 +662,6 @@ class TileLayerData:
                 for x, col in enumerate(self._tile_at_xy)
                 for y, data in enumerate(col)
                 if data is not None and tile_num==data.tile ]
-
 
     def lay_tile(self, col: int, row: int, tile_num: int, pal: list[int]):
         '''places tile_num with pal and postion (col, row)'''
