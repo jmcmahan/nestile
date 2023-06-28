@@ -86,6 +86,7 @@ nes_filetypes = (
 
 default_palette = (15, 2, 10, 6)
 
+
 class NesTileEditTk:
     """Class encapsulating the UI components for the NES Tile Editor program"""
     def __init__(self, event_map: 'NesTileEdit'):
@@ -401,6 +402,7 @@ class NesTileEditTk:
         self.tlayout_pixmap.delete('all')
         x_off = 0
         y_off = 0
+        empty = Tile()
         # create draw callback to draw tile to tlayout_pixmap
         def _draw( start_x, start_y, stop_x, stop_y, color ):
             self.tlayout_pixmap.create_rectangle(
@@ -411,8 +413,10 @@ class NesTileEditTk:
         for x in range(TLAYOUT_XSPAN):
             for y in range(TLAYOUT_YSPAN):
                 tle = tlayout.tile_at_xy(x,y)
-
-                tile_set[tle.tile].draw(_draw, [nes_palette[i] for i in tle.palette])
+                if tle is None:
+                    empty.draw(_draw, tileset_palette)
+                else:
+                    tile_set[tle.tile].draw(_draw, [nes_palette[i] for i in tle.palette])
                 y_off += TLAYOUT_OFFSET
             x_off += TLAYOUT_OFFSET
             y_off = 0
@@ -466,6 +470,7 @@ def box_number(x:int, y:int, scale:int, row_span:int) -> int:
     coordinates (x, y), assuming each box is scale by scale and there are row_span boxes in a row.
     """
     return (x // scale) + row_span * (y // scale)
+
 
 class Tile:
     """Represents a single 8x8 Tile that could be mapped to various windows"""
@@ -541,6 +546,7 @@ class Tile:
             for x, pixel in enumerate(row):
                 draw(x, y, x+1, y+1, pal[pixel])
 
+
 class TileSet:
     """Class holding the tile pixel data for the entire tile set.
     Represents the data in the character ROM
@@ -554,16 +560,11 @@ class TileSet:
         else:
             self.filename = ''
         self.chr_rom_size = rom_size
-        self.file_format = 'raw'
-        self.modified = False
-        # Holds iNES PRG and header data when opening iNES ROM's
-        self.ines_data = None
-        # Holds the tile bitmaps as 'Tile's
-        self.tile_data = [Tile() for _ in range(self.chr_rom_size//BYTES_PER_TILE)]
+        self.reset()
 
-    def reset(self):
+    def reset(self, filename=''):
         """Reinitialize class variables, except data size is kept."""
-        self.filename = ''
+        self.filename = filename
         self.file_format = 'raw'
         self.modified = False
         # Holds iNES PRG and header data when opening iNES ROM's
@@ -638,22 +639,21 @@ class TileSet:
         line = "\n---------------------------------------------------------"
         return f"{type(self).__name__}\n"+"\n".join( str(row)+line for row in self.tile_data)
 
+
 class TileLayerEntry(namedtuple('TileLayerEntry', ['tile', 'palette'])):
     """Tile and palette of one location"""
     __slots__ = ()
+
 
 class TileLayout(namedtuple('TileLayout', ['x', 'y', 'palette'])):
     """Location and palette of one tile"""
     __slots__ = ()
 
+
 class TileLayerData:
     """Class holding the Tile Layout data in the Tile Layer window"""
     def __init__(self):
-        self.filename = ''
-        self.modified = False
-        # Holds information for drawing tiles on the tile layer
-        # Initialize tile map
-        self._tile_at_xy = [ TLAYOUT_YSPAN*[None] for _ in range(TLAYOUT_XSPAN) ]
+        self.reset()
 
     def reset(self):
         """Reinitialize class variables"""
@@ -661,7 +661,7 @@ class TileLayerData:
         self.modified = False
         # Holds information for drawing tiles on the tile layer
         # Initialize tile map
-        self._tile_at_xy = [ TLAYOUT_YSPAN*[None] for _ in range(TLAYOUT_XSPAN) ]
+        self._tile_at_xy = [ TLAYOUT_YSPAN * [None] for _ in range(TLAYOUT_XSPAN) ]
 
     def tile_layout(self, tile_num: int) -> list('TileLayout'):
         """ Returns a list of tuples conataininf the x,y positions and
@@ -671,7 +671,6 @@ class TileLayerData:
                 for y, data in enumerate(col)
                 if data is not None and tile_num==data.tile ]
 
-
     def lay_tile(self, col: int, row: int, tile_num: int, pal: list[int]):
         '''places tile_num with pal and postion (col, row)'''
         self.modified = True
@@ -680,9 +679,8 @@ class TileLayerData:
     def tile_at_xy(self, col: int, row: int) -> 'TileLayerEntry':
         '''Returns the tuple of tile number and palette for the tile at positon col,row'''
         tle = self._tile_at_xy[col][row]
-        if tle is None:
-            return TileLayerEntry(0, default_palette)
         return tle
+
 
 class NesTileEdit:
     """Class for the NES Tile Editor program"""
@@ -899,6 +897,7 @@ class NesTileEdit:
     def main(self):
         '''The main entry point for the NesTileEditor'''
         self._ui.mainloop()
+
 
 # Main program loop
 if __name__ == "__main__":
