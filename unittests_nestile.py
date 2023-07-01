@@ -45,23 +45,19 @@ class TestNesTileEditor(unittest.TestCase):
         self.assertEqual(first_tile, tile4)
 
 
-    def test_tile_edits(self):
-        """
-        Shifts tile around and makes sure we ge back to start
-        """
-        base_bytes = b"\x41\xC2\x44\x48\x10\x20\x40\x80\x01\x02\x04\x08\x16\x21\x42\x87"
-        first_tile = Tile().frombytes(base_bytes)
+    def tile_edits(self, init_tile_data):
+        first_tile = Tile(init_tile_data)
         print (first_tile)
         tile4=Tile(first_tile)
         self.assertEqual(first_tile, tile4)
-        tile4.invert()
-        print ("Invert")
-        print (tile4)
         tile4.shift_up()
         print ("shift_up")
         print (tile4)
         tile4.shift_right()
         print ("shift_right")
+        print (tile4)
+        tile4.shift_down()
+        print ("shift_down")
         print (tile4)
         tile4.invert()
         print ("invert")
@@ -69,10 +65,23 @@ class TestNesTileEditor(unittest.TestCase):
         tile4.shift_left()
         print ("shift_left")
         print (tile4)
-        tile4.shift_down()
-        print ("shift_down")
+        tile4.invert()
+        print ("invert")
         print (tile4)
         self.assertEqual(first_tile, tile4)
+
+
+    def test_tile_edits(self):
+        """
+        Shifts tile around and makes sure we ge back to start
+        """
+        self.tile_edits(b"\x41\xC2\x44\x48\x10\x20\x40\x80\x01\x02\x04\x08\x16\x21\x42\x87")
+
+    def test_tile_none(self):
+        """
+        Shifts tile around and makes sure we ge back to start
+        """
+        self.tile_edits(None)
 
 
 if __name__ == '__main__':
