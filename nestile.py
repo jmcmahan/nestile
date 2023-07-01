@@ -703,6 +703,13 @@ class TileSet:
     Represents the data in the character ROM
     """
     def __init__(self, rom_size=CROM_INC, filename=None):
+        # for pylint data member initialization detection
+        self.chr_rom_size = self.tile_data = self.file_format = None
+        self.ines_data = self.filename = self.modified = None
+        self.reset(rom_size, filename)
+
+    def reset(self, rom_size=None, filename=None):
+        """Reinitialize class variables, except data size may be kept."""
         if filename is not None:
             if os.path.isfile(filename):
                 self.do_open( filename )
@@ -710,12 +717,8 @@ class TileSet:
             self.filename = filename
         else:
             self.filename = ''
-        self.chr_rom_size = rom_size
-        self.reset()
-
-    def reset(self, filename=''):
-        """Reinitialize class variables, except data size is kept."""
-        self.filename = filename
+        if rom_size is not None:
+            self.chr_rom_size = rom_size
         self.file_format = 'raw'
         self.modified = False
         # Holds iNES PRG and header data when opening iNES ROM's
@@ -807,6 +810,8 @@ class TilePixelUpdate(namedtuple('TilePixelUpdate', ['x', 'y', 'color'])):
 class TileLayerData:
     """Class holding the Tile Layout data in the Tile Layer window"""
     def __init__(self):
+        self.modified = False # for pylint initialization detection
+        self.filename = None  # for pylint initialization detection
         self.reset()
 
     def reset(self):
