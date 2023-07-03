@@ -163,11 +163,11 @@ Thanks to all the folks who worked on reverse-engineering the NES and creating
 freely available documentation for it. Thanks also to John Finlay for his
 PyGTK documents, which made it pretty easy to pick this library up and do
 something with it. Also thanks to Ted Kotz for overhauling the code to run on
-Python 3 and use Tkinter rather than PyGTK. 
+Python 3 and use Tkinter rather than PyGTK.
 
-Original Author : J. A. McMahan Jr.
-Major Update to Python 3 / Tkinter: Ted Kotz
-Version: See changes.txt for details on changes in different versions
-License: See license.txt for details, but it's a modified BSD license. By
+- Original Author : J. A. McMahan Jr.
+- Major Update to Python 3 / Tkinter: Ted Kotz
+- Version: See changes.txt for details on changes in different versions
+- License: See license.txt for details, but it's a modified BSD license. By
          using this software, you agree to abide by the license.
 

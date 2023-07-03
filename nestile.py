@@ -13,8 +13,10 @@ from tkinter import messagebox
 from tkinter import simpledialog
 from tkinter import ttk
 import os
+import re
 import sys
 import tkinter as tk
+import traceback
 
 #Size of a Tile
 TILESIZE=8
@@ -166,9 +168,50 @@ class NesTileEditTk:
                                         underline=0, accelerator="Ctrl+Q")
         self.root.bind_all("<Control-q>", lambda x: event_map.destroy())
         main_menubar.add_cascade(label="File", menu=main_file_menu, underline=0)
+
         main_edit_menu = tk.Menu(main_menubar)
-        main_edit_menu.add_command(label="Config...", command=event_map.config_tileset, underline=0)
+        main_edit_menu.add_command(label="Cut", command=event_map.tile_copy,
+                                        underline=2, accelerator="Ctrl+X")
+        self.root.bind_all("<Control-x>", lambda x: event_map.tile_cut())
+        main_edit_menu.add_command(label="Copy", command=event_map.tile_copy,
+                                        underline=0, accelerator="Ctrl+C")
+        self.root.bind_all("<Control-c>", lambda x: event_map.tile_copy())
+        main_edit_menu.add_command(label="Paste", command=event_map.tile_paste,
+                                        underline=0, accelerator="Ctrl+V")
+        self.root.bind_all("<Control-v>", lambda x: event_map.tile_paste())
+        main_edit_menu.add_command(
+            label="Settings...", command=event_map.config_tileset, underline=5)
         main_menubar.add_cascade(label="Edit", menu=main_edit_menu, underline=0)
+
+        main_tile_menu = tk.Menu(main_menubar)
+        main_tile_menu.add_command(label="Shift Up", command=event_map.tile_shift_up,
+                                        underline=6, accelerator="Shift+Up")
+        self.root.bind_all("<Shift-Up>", lambda x: event_map.tile_shift_up())
+        main_tile_menu.add_command(label="Shift Down", command=event_map.tile_shift_down,
+                                        underline=6, accelerator="Shift+Down")
+        self.root.bind_all("<Shift-Down>", lambda x: event_map.tile_shift_down())
+        main_tile_menu.add_command(label="Shift Left", command=event_map.tile_shift_left,
+                                        underline=6, accelerator="Shift+Left")
+        self.root.bind_all("<Shift-Left>", lambda x: event_map.tile_shift_left())
+        main_tile_menu.add_command(label="Shift Right", command=event_map.tile_shift_right,
+                                        underline=6, accelerator="Shift+Right")
+        self.root.bind_all("<Shift-Right>", lambda x: event_map.tile_shift_right())
+        main_tile_menu.add_command(label="Invert Colors", command=event_map.tile_invert,
+                                        underline=0, accelerator="~")
+        self.root.bind_all("~", lambda x: event_map.tile_invert())
+        main_tile_menu.add_command(label="Flip Horizontal", command=event_map.tile_hflip,
+                                        underline=0, accelerator="!")
+        self.root.bind_all("!", lambda x: event_map.tile_hflip())
+        main_tile_menu.add_command(label="Flip Vertical", command=event_map.tile_vflip,
+                                        underline=0, accelerator="@")
+        self.root.bind_all("@", lambda x: event_map.tile_vflip())
+        main_tile_menu.add_command(label="Rotate CCW", command=event_map.tile_ccwrotate,
+                                        underline=0, accelerator="#")
+        self.root.bind_all("#", lambda x: event_map.tile_ccwrotate())
+        main_tile_menu.add_command(label="Rotate CW", command=event_map.tile_cwrotate,
+                                        underline=0, accelerator="$")
+        self.root.bind_all("$", lambda x: event_map.tile_cwrotate())
+        main_menubar.add_cascade(label="Tile", menu=main_tile_menu, underline=0)
 
     def destroy(self):
         '''Shutsdown and cleans up the UI'''
@@ -233,36 +276,54 @@ class NesTileEditTk:
         row = 0 if row < 0 else TILESIZE-1 if row > (TILESIZE-1) else row
         self.event_map.draw_tile_pixel_bg(col, row)
 
-    def update_tile_pixel(self, tlayer, tile_num, pal, tile_color, col, row):
-        '''Updates a pixel to a tile across all windows
-        Args:
-            tlayout : the TileLayerData to use to populate the display
-            tile_num: the number of the tile to be updated
-            pal: the color palette a list of 4 nes colors(0-63)
-            tile_color: the pixel value to set in the tile (0-3)
-            col: the x position
-            row: the y position
-        '''
+    def update_tile_pixel(self, tlayer, tile_num, pal, pixel_update):
+        '''Updates a pixel in current tile across all windows'''
         # Update edit pixmap
-        color = nes_palette[pal[tile_color]]
-        self.edit_pixmap.create_rectangle(col*EDITSCALE, row*EDITSCALE,
-                                          (col+1)*EDITSCALE-1, (row+1)*EDITSCALE-1,
-                                          fill=color, outline=color)
+        color = nes_palette[pal[pixel_update.color]]
+        self.edit_pixmap.create_rectangle(
+            pixel_update.x*EDITSCALE, pixel_update.y*EDITSCALE,
+            (pixel_update.x+1)*EDITSCALE-1, (pixel_update.y+1)*EDITSCALE-1,
+            fill=color, outline=color)
         # Update tileset pixmap
-        color = tileset_palette[tile_color]
-        tile_x = col*TSET_SCALE+(tile_num % TSET_SPAN)*TSET_OFFSET
-        tile_y = row*TSET_SCALE+(tile_num // TSET_SPAN)*TSET_OFFSET
+        color = tileset_palette[pixel_update.color]
+        tile_x = pixel_update.x*TSET_SCALE+(tile_num % TSET_SPAN)*TSET_OFFSET
+        tile_y = pixel_update.y*TSET_SCALE+(tile_num // TSET_SPAN)*TSET_OFFSET
         self.tileset_pixmap.create_rectangle(
             tile_x, tile_y, tile_x+TSET_SCALE-1, tile_y+TSET_SCALE-1, fill=color, outline=color)
         # Updates all the tiles laid on the tile layer of the same kind
         t_info = tlayer.tile_layout(tile_num)
         for t_layout in t_info:
-            color =  nes_palette[t_layout.palette[tile_color]]
-            lay_x = col * TLAYOUT_SCALE + t_layout.x * TLAYOUT_OFFSET
-            lay_y = row * TLAYOUT_SCALE + t_layout.y * TLAYOUT_OFFSET
+            color =  nes_palette[t_layout.palette[pixel_update.color]]
+            lay_x = pixel_update.x * TLAYOUT_SCALE + t_layout.x * TLAYOUT_OFFSET
+            lay_y = pixel_update.y * TLAYOUT_SCALE + t_layout.y * TLAYOUT_OFFSET
             self.tlayout_pixmap.create_rectangle(
                 lay_x, lay_y,lay_x+TLAYOUT_SCALE-1, lay_y+TLAYOUT_SCALE-1,
                 fill=color, outline=color)
+
+    def update_tile(self, tlayer, tile_set, tile_num, pal):
+        '''Updates current tile across all windows'''
+        tile = tile_set[tile_num]
+        # Update edit pixmap
+        self.edit_redraw_all( tile_num, tile, pal)
+
+        # Update tileset pixmap
+        self.tileset_updatehighlight( tile_set, tile_num, tile_num)
+
+        x_off = 0
+        y_off = 0
+        # create draw callback to draw tile to tlayout_pixmap
+        def _draw( start_x, start_y, stop_x, stop_y, color ):
+            self.tlayout_pixmap.create_rectangle(
+                x_off+start_x*TLAYOUT_SCALE,  y_off+start_y*TLAYOUT_SCALE,
+                x_off+stop_x*TLAYOUT_SCALE-1, y_off+stop_y*TLAYOUT_SCALE-1,
+                fill=color, outline=color)
+
+        # Updates all the tiles laid on the tile layer of the same kind
+        t_info = tlayer.tile_layout(tile_num)
+        for t_layout in t_info:
+            x_off = t_layout.x * TLAYOUT_OFFSET
+            y_off = t_layout.y * TLAYOUT_OFFSET
+            tile.draw(_draw, [nes_palette[i] for i in t_layout.palette])
 
     def _colors_leftclick(self, event):
         i = box_number(event.x, event.y, COLORS_BOXSIZE, COLORS_SPAN)
@@ -335,6 +396,10 @@ class NesTileEditTk:
         '''
         # Clear out draw window (done in configure before, but trying to avoid
         # having my graphics drawn over.
+        if tile_set.filename == '':
+            self.main_win.wm_title('Tile Set')
+        else:
+            self.main_win.wm_title(f"Tile Set - {tile_set.filename}")
         self.tileset_pixmap.config(
             scrollregion=(0,0,TSET_WIDTH,(TSET_OFFSET * len(tile_set)) // TSET_SPAN) )
         self.tileset_pixmap.delete('all')
@@ -399,6 +464,10 @@ class NesTileEditTk:
             tile_set : the TileSet to draw tiles from
             tlayout : the TileLayerData to use to populate the display
         '''
+        if tlayout.filename == '':
+            self.tlayout_win.wm_title('Tile Layer')
+        else:
+            self.tlayout_win.wm_title(f"Tile Layer - {tlayout.filename}")
         self.tlayout_pixmap.delete('all')
         x_off = 0
         y_off = 0
@@ -420,6 +489,15 @@ class NesTileEditTk:
                 y_off += TLAYOUT_OFFSET
             x_off += TLAYOUT_OFFSET
             y_off = 0
+
+    def clipboard_set( self, value ):
+        """Sets the contents of the clipboard"""
+        self.root.clipboard_clear()
+        self.root.clipboard_append(value)
+
+    def clipboard_get( self ):
+        """Gets the contents of the clipboard"""
+        return self.root.clipboard_get()
 
     @staticmethod
     def showwarning( warning: str ):
@@ -474,8 +552,22 @@ def box_number(x:int, y:int, scale:int, row_span:int) -> int:
 
 class Tile:
     """Represents a single 8x8 Tile that could be mapped to various windows"""
-    def __init__(self):
-        self._pixels = None
+    def __init__(self, data_yx=None):
+        if data_yx is None:
+            self._pixels = None
+        elif isinstance(data_yx, list):
+            self._pixels = [ row[:TILESIZE] for row in data_yx[:TILESIZE] ]
+        elif isinstance(data_yx, str):
+            self.from_str( data_yx )
+        elif isinstance(data_yx, Tile):
+            if data_yx._pixels is None:
+                self._pixels = None
+            else:
+                self._pixels = [ row[:] for row in data_yx._pixels ]
+        elif isinstance(data_yx, (bytes, bytearray)):
+            self.frombytes(data_yx)
+        else:
+            self._pixels = None
 
     def set(self, x: int, y: int, value: int ):
         """Set color value(0-3) of pixel at (x,y)"""
@@ -491,8 +583,9 @@ class Tile:
 
     def __repr__(self):
         if self._pixels is None:
-            return "None"
-        return f"{type(self).__name__}\n\t"+"\n\t".join( str(row) for row in self._pixels)
+            return f"{type(self).__name__}(None)"
+        return ( f"{type(self).__name__}([\n    " +
+            ',\n    '.join( repr(row) for row in self._pixels) + "\n    ])" )
 
     def __eq__(self, value):
         if self._pixels is None:
@@ -500,9 +593,7 @@ class Tile:
         return value==self._pixels
 
     def tobytes(self) ->  bytes:
-        """Given a tile in the form of 8x8 list or palette indexes
-        returns a string or bytes containing raw NES graphics data (in binary),
-        """
+        """Returns tile data as bytes containing raw NES graphics data,"""
         if self._pixels is None:
             return b"\0" * BYTES_PER_TILE
         hi_data = bytearray(b"")
@@ -518,9 +609,7 @@ class Tile:
         return lo_data + hi_data
 
     def frombytes(self, data:bytes):
-        """Given a string of bytes containing raw NES graphics data (in binary),
-        returns a tile in the form of 8x8 list or palette indexes
-        """
+        """Given bytes containing raw NES graphics data (in binary), sets tile data"""
         if (b"\0" * BYTES_PER_TILE) == data[0:BYTES_PER_TILE]:
             self._pixels = None
             return self
@@ -531,6 +620,19 @@ class Tile:
             self._pixels.append( [ ((hi_bits >> (i)) & 2) + ((lo_bits >> (i)) & 1)
                                   for i in range(7,-1,-1) ] )
         return self
+
+    def from_str(self, data: str):
+        """Sets tile data given a Tile string repr"""
+        clean_whitespace = "".join(data.split())
+        if clean_whitespace == f"{type(self).__name__}(None)":
+            self._pixels = None
+        else:
+            regex = re.compile(f"^{type(self).__name__}"r"\(\[\[([0-3,]*)\],"
+                                r"\[([0-3,]*)\],\[([0-3,]*)\],\[([0-3,]*)\],"
+                                r"\[([0-3,]*)\],\[([0-3,]*)\],\[([0-3,]*)\],"
+                                r"\[([0-3,]*)\]\]\)$")
+            list_rows=regex.match(clean_whitespace).groups()
+            self._pixels=[[int(val) for val in row.split(",")] for row in list_rows]
 
     def draw(self, draw: 'Callable', pal: list['Color']):
         """Draws the tile on to pixel resolution draw function.
@@ -546,12 +648,68 @@ class Tile:
             for x, pixel in enumerate(row):
                 draw(x, y, x+1, y+1, pal[pixel])
 
+    def shift_up(self):
+        """Shifts tile up 1 pixel"""
+        if self._pixels is not None:
+            self._pixels = self._pixels[1:] + [self._pixels[0]]
+
+    def shift_down(self):
+        """Shifts tile down 1 pixel"""
+        if self._pixels is not None:
+            self._pixels = [self._pixels[-1]] + self._pixels[:-1]
+
+    def shift_left(self):
+        """Shifts tile left 1 pixel"""
+        if self._pixels is not None:
+            self._pixels = [ row[1:]+[row[0]] for row in self._pixels]
+
+    def shift_right(self):
+        """Shifts tile right 1 pixel"""
+        if self._pixels is not None:
+            self._pixels = [ [row[-1]]+row[:-1] for row in self._pixels]
+
+    def invert(self):
+        """Inverts colors of pixels in tile"""
+        if self._pixels is None:
+            self._pixels = [[3]*TILESIZE for _ in range(TILESIZE)]
+        else:
+            self._pixels = [ [ (3-val) for val in row] for row in self._pixels ]
+
+    def vflip(self):
+        """Flips tile vertically"""
+        if self._pixels is not None:
+            self._pixels.reverse()
+
+    def hflip(self):
+        """Flips tile horizontally"""
+        if self._pixels is not None:
+            for row in self._pixels:
+                row.reverse()
+
+    def cwrotate(self):
+        """Rotates tile clockwise"""
+        if self._pixels is not None:
+            self._pixels = [[ self._pixels[y][x] for y in range(TILESIZE-1,-1,-1)]
+                            for x in range(TILESIZE)]
+
+    def ccwrotate(self):
+        """Rotates tile counter-clockwise"""
+        if self._pixels is not None:
+            self._pixels = [[ self._pixels[y][x] for y in range(TILESIZE)]
+                            for x in range(TILESIZE-1,-1,-1)]
 
 class TileSet:
     """Class holding the tile pixel data for the entire tile set.
     Represents the data in the character ROM
     """
     def __init__(self, rom_size=CROM_INC, filename=None):
+        # for pylint data member initialization detection
+        self.chr_rom_size = self.tile_data = self.file_format = None
+        self.ines_data = self.filename = self.modified = None
+        self.reset(rom_size, filename)
+
+    def reset(self, rom_size=None, filename=None):
+        """Reinitialize class variables, except data size may be kept."""
         if filename is not None:
             if os.path.isfile(filename):
                 self.do_open( filename )
@@ -559,12 +717,8 @@ class TileSet:
             self.filename = filename
         else:
             self.filename = ''
-        self.chr_rom_size = rom_size
-        self.reset()
-
-    def reset(self, filename=''):
-        """Reinitialize class variables, except data size is kept."""
-        self.filename = filename
+        if rom_size is not None:
+            self.chr_rom_size = rom_size
         self.file_format = 'raw'
         self.modified = False
         # Holds iNES PRG and header data when opening iNES ROM's
@@ -637,7 +791,7 @@ class TileSet:
 
     def __repr__(self):
         line = "\n---------------------------------------------------------"
-        return f"{type(self).__name__}\n"+"\n".join( str(row)+line for row in self.tile_data)
+        return f"{type(self).__name__}\n"+"\n".join( repr(tile)+line for tile in self.tile_data)
 
 
 class TileLayerEntry(namedtuple('TileLayerEntry', ['tile', 'palette'])):
@@ -649,10 +803,15 @@ class TileLayout(namedtuple('TileLayout', ['x', 'y', 'palette'])):
     """Location and palette of one tile"""
     __slots__ = ()
 
+class TilePixelUpdate(namedtuple('TilePixelUpdate', ['x', 'y', 'color'])):
+    """Location and color of a pixel update"""
+    __slots__ = ()
 
 class TileLayerData:
     """Class holding the Tile Layout data in the Tile Layer window"""
     def __init__(self):
+        self.modified = False # for pylint initialization detection
+        self.filename = None  # for pylint initialization detection
         self.reset()
 
     def reset(self):
@@ -664,7 +823,7 @@ class TileLayerData:
         self._tile_at_xy = [ TLAYOUT_YSPAN * [None] for _ in range(TLAYOUT_XSPAN) ]
 
     def tile_layout(self, tile_num: int) -> list('TileLayout'):
-        """ Returns a list of tuples conataininf the x,y positions and
+        """ Returns a list of tuples containing the x,y positions and
         palettes for a specific tile"""
         return [TileLayout(x, y, data.palette)
                 for x, col in enumerate(self._tile_at_xy)
@@ -842,35 +1001,26 @@ class NesTileEdit:
             self._ui.colors_redraw_all(self.current_pal, self.current_col)
 
     def _draw_tile_pixel( self, col, row, tile_color):
-        '''Modifies a pixel in the tile editor
-        reflecting that change in the Tile set and Tail Layout'''
-        self._tile_set.update_tile_pixel(self.current_tile_num,col,row,tile_color)
-        self._ui.update_tile_pixel(self._tlayer, self.current_tile_num,
-                                   self.current_pal, tile_color,
-                                   col, row)
-
-    def draw_tile_pixel_fg( self, col, row):
-        '''Draws a current fg color pixel on the current tile at location (col, row)
+        '''Modifies a pixel in the current tile in all windows
         Args:
             col: the x position
             row: the y position
+            tile_color: tile pixel color (0-3)
         '''
+        self._tile_set.update_tile_pixel(self.current_tile_num,col,row,tile_color)
+        self._ui.update_tile_pixel(self._tlayer, self.current_tile_num, self.current_pal,
+                                   TilePixelUpdate(col, row, tile_color) )
+
+    def draw_tile_pixel_fg( self, col, row):
+        '''Draws a current fg color pixel on the current tile at location (col, row)'''
         self._draw_tile_pixel(col, row, self.current_col)
 
     def draw_tile_pixel_bg( self, col, row):
-        '''Draws a bg color (0) pixel on the current tile at location (col, row)
-        Args:
-            col: the x position
-            row: the y position
-        '''
+        '''Draws a bg color (0) pixel on the current tile at location (col, row)'''
         self._draw_tile_pixel(col, row, 0)
 
     def lay_tile(self, col, row):
-        '''Draw the current tile at the block in location col, row
-        Args:
-            col: the x position
-            row: the y position
-        '''
+        '''Draw the current tile at the block in location col, row'''
         self._tlayer.lay_tile( col, row, self.current_tile_num, self.current_pal)
         self._ui.lay_tile( col, row, self._tile_set[self.current_tile_num], self.current_pal)
 
@@ -886,6 +1036,93 @@ class NesTileEdit:
             self._ui.edit_redraw_all(self.current_tile_num,
                                     self._tile_set[self.current_tile_num],
                                     self.current_pal)
+
+    def tile_cut(self):
+        """Cuts current tile to clipboard"""
+        self.tile_copy()
+        self._tile_set.modified=True
+        self._tile_set[self.current_tile_num].frombytes(b"\0" * BYTES_PER_TILE)
+        self._ui.update_tile(self._tlayer, self._tile_set,
+                             self.current_tile_num, self.current_pal)
+
+    def tile_copy(self):
+        """Copies current tile to clipboard"""
+        self._ui.clipboard_set( self._tile_set[self.current_tile_num] )
+
+    def tile_paste(self):
+        """Pastes clipboard to current tile"""
+        try:
+            self._tile_set[self.current_tile_num].from_str(self._ui.clipboard_get() )
+            self._tile_set.modified=True
+        except Exception as err:
+            print(err)
+            traceback.print_exc()
+            self._ui.showerror("Unable to paste as tile")
+        self._ui.update_tile(self._tlayer, self._tile_set,
+                             self.current_tile_num, self.current_pal)
+
+    def tile_shift_up(self):
+        """Shifts current tile up 1 pixel"""
+        self._tile_set.modified=True
+        self._tile_set[self.current_tile_num].shift_up()
+        self._ui.update_tile(self._tlayer, self._tile_set,
+                             self.current_tile_num, self.current_pal)
+
+    def tile_shift_down(self):
+        """Shifts current tile down 1 pixel"""
+        self._tile_set.modified=True
+        self._tile_set[self.current_tile_num].shift_down()
+        self._ui.update_tile(self._tlayer, self._tile_set,
+                             self.current_tile_num, self.current_pal)
+
+    def tile_shift_left(self):
+        """Shifts current tile left 1 pixel"""
+        self._tile_set.modified=True
+        self._tile_set[self.current_tile_num].shift_left()
+        self._ui.update_tile(self._tlayer, self._tile_set,
+                             self.current_tile_num, self.current_pal)
+
+    def tile_shift_right(self):
+        """Shifts current tile right 1 pixel"""
+        self._tile_set.modified=True
+        self._tile_set[self.current_tile_num].shift_right()
+        self._ui.update_tile(self._tlayer, self._tile_set,
+                             self.current_tile_num, self.current_pal)
+
+    def tile_invert(self):
+        """Inverts colors of pixels in current tile"""
+        self._tile_set.modified=True
+        self._tile_set[self.current_tile_num].invert()
+        self._ui.update_tile(self._tlayer, self._tile_set,
+                             self.current_tile_num, self.current_pal)
+
+    def tile_hflip(self):
+        """Flips current tile horizontally"""
+        self._tile_set.modified=True
+        self._tile_set[self.current_tile_num].hflip()
+        self._ui.update_tile(self._tlayer, self._tile_set,
+                             self.current_tile_num, self.current_pal)
+
+    def tile_vflip(self):
+        """Flips current tile vertically"""
+        self._tile_set.modified=True
+        self._tile_set[self.current_tile_num].vflip()
+        self._ui.update_tile(self._tlayer, self._tile_set,
+                             self.current_tile_num, self.current_pal)
+
+    def tile_cwrotate(self):
+        """Rotates current tile clockwise"""
+        self._tile_set.modified=True
+        self._tile_set[self.current_tile_num].cwrotate()
+        self._ui.update_tile(self._tlayer, self._tile_set,
+                             self.current_tile_num, self.current_pal)
+
+    def tile_ccwrotate(self):
+        """Rotates current tile counter-clockwise"""
+        self._tile_set.modified=True
+        self._tile_set[self.current_tile_num].ccwrotate()
+        self._ui.update_tile(self._tlayer, self._tile_set,
+                             self.current_tile_num, self.current_pal)
 
     def destroy(self):
         '''Shutsdown the NesTileEditor'''
@@ -910,5 +1147,4 @@ if __name__ == "__main__":
             nes_tile_edit = NesTileEdit(sys.argv[1])
     else:
         nes_tile_edit = NesTileEdit()
-
     nes_tile_edit.main()
